@@ -1,0 +1,30 @@
+# Build artifacts
+node_modules/
+dist/
+build/  # Or your chosen build folder name
+.cache/
+
+# Editor-specific files
+.vscode/  # Or your editor's specific folder
+*.sublime-project
+*.sublime-workspace
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+
+# Test coverage reports
+coverage/
+
+# Specific file types
+*.log
+npm-debug.log
+yarn-error.log
+
+# Temporary files
+.DS_Store
+
+# IDE-specific files
+*.idea/
