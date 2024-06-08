@@ -9,6 +9,7 @@
     "build": "webpack --mode production"
   },
   "dependencies": {
+    "@mysten/sui": "^1.0.5",
     "@tsconfig/node-lts": "^18.12.5",
     "@types/lodash": "^4.14.201",
     "@types/mime": "^3.0.4",

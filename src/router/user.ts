@@ -1,5 +1,9 @@
 import { dbCollection } from "../database/collection";
 import jwt from "jsonwebtoken";
+import { verifyPersonalMessageSignature } from "@mysten/sui/verify";
+export function randomIntFromInterval(min, max) {
+  return Math.floor(Math.random() * (max - min + 1) + min);
+}
 export const userController = {
   createUser: async (req, res) => {
     const { address, password } = req.body;
@@ -30,6 +34,27 @@ export const userController = {
   },
   ping: async (req, res) => {
     res.json("user:router:ping");
+  },
+  message: async (req, res) => {
+    const { address } = req.body;
+    const message = `login::${address}::${randomIntFromInterval(1, 10000)}::${new Date().getTime()}`;
+    res.json({ status: 200, message });
+  },
+  verify: async (req, res) => {
+    try {
+      const { address, message, signature } = req.body;
+
+      const publicKey = await verifyPersonalMessageSignature(new TextEncoder().encode(message), signature);
+      if (address !== publicKey.toSuiAddress()) {
+        res.json({ status: 401, message: "Verify message failed!" });
+      }
+      const token = await jwt.sign({ address: publicKey.toSuiAddress() }, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "24h",
+      });
+      res.json({ status: 200, token });
+    } catch (error) {
+      res.json({ status: 500, message: "Verify failed!" });
+    }
   },
   getAllUser: async (req, res) => {
     const { collection } = await dbCollection<any>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_USERS!);

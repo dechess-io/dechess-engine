@@ -57,14 +57,14 @@ import { MongoClient } from "mongodb";
           // console.log("7s200:socket:auth:err", err, decodedToken);
           return;
         }
-        const { collection } = await dbCollection<any>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_USERS!);
-        const userData = await collection.findOne({ address: decodedToken.address });
-        // console.log("7s200:userData", userData);
-        if (!userData) {
-          // console.log("7s200:socket:auth:err:userData", userData, decodedToken);
-          return;
-        }
-        (socket as any).user = userData.address;
+        // const { collection } = await dbCollection<any>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_USERS!);
+        // const userData = await collection.findOne({ address: decodedToken.address });
+        // // console.log("7s200:userData", userData);
+        // if (!userData) {
+        //   // console.log("7s200:socket:auth:err:userData", userData, decodedToken);
+        //   return;
+        // }
+        (socket as any).user = decodedToken.address;
         return next();
       });
     } else {
@@ -119,25 +119,26 @@ import { MongoClient } from "mongodb";
     });
 
     socket.on("move", async function (move) {
-      // console.log("7s200:move:2");
-      console.log(move);
+      const user = (socket as any).user;
+
       const { from, to, turn, address, isPromotion, fen, game_id, promotion } = move; //fake fen'
       console.log(isPromotion);
       socket.join(game_id);
 
       const { collection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
       const board = await collection.findOne({ game_id: game_id });
-      // if (board.player_1 === "" || board.player_2 === "" || board.player_2 === DEFAULT_0X0_ADDRESS) {
-      //   return;
-      // }
-      // console.log("7s200:move:3", (socket as any).user, turn, game_id);
       if ((board as any).isGameDraw || (board as any).isGameOver) {
         return;
       }
-      // console.log("7s200:move:4");
+      if (board.player_1 !== user && board.turn_player === "w") {
+        return;
+      }
+      if (board.player_2 !== user && board.turn_player === "b") {
+        return;
+      }
+
       const chess = new ChessV2(fen);
       try {
-        console.log("7s200:move:promotion");
         if (!isPromotion) {
           chess.move({
             from: from,
@@ -153,13 +154,9 @@ import { MongoClient } from "mongodb";
         }
       } catch (error) {
         console.log(error);
-        console.log("7s200:move:err");
       }
-
       const isGameOver = chess.isGameOver();
       const isGameDraw = chess.isDraw();
-      // console.log("7s200:move:5");
-
       const newBoard = {
         $set: {
           board: chess.board(),
@@ -170,7 +167,6 @@ import { MongoClient } from "mongodb";
           isGameOver: isGameOver,
         },
       };
-      // console.log("7s200:move:6");
 
       io.to(game_id).emit("newmove", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen() });
       // console.log("7s200:move:7", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen() });
@@ -186,15 +182,6 @@ import { MongoClient } from "mongodb";
         .catch((err) => {
           // console.log("7s200:err", err);
         });
-      // console.log("7s200:move:9");
-
-      // if ((board.turn_player !== turn && turn === "b" && (socket as any).user === board.player_1) || (board.turn_player !== turn && turn === "w" && (socket as any).user === board.player_2)) {
-      //  // h
-      //   // console.log("7s200:chess", newBoard);
-      // }
-      // else {
-      //   // io.to(board.game_id).emit("newMove", { from, to, board: board.board, turn: board.turn_player, fen: board.fen });
-      // }
     });
 
     socket.on("joinGame", async function (data) {
@@ -310,14 +297,4 @@ import { MongoClient } from "mongodb";
       console.log("7s200:socket:disconnect");
     });
   });
-  function getMoveOptions(game: Chess, square: Square) {
-    const moves = game.moves({
-      square,
-      verbose: true,
-    });
-    if (moves.length === 0) {
-      return false;
-    }
-    return true;
-  }
 })();
