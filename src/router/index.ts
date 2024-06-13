@@ -17,6 +17,7 @@ routes.post("/login-verify-account", userController.verify);
 // ton
 routes.post("/generate_payload", userController.generatePayload);
 routes.post("/check_proof", userController.checkProof);
+routes.get("/get_account_info", userController.getAccountInfo);
 
 routes.post("/new-game", gameController.newGame);
 routes.get("/legal-moves/:gameId/:position", gameController.legalMoves);

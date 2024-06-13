@@ -2,8 +2,9 @@ import { dbCollection } from "../database/collection";
 import jwt from "jsonwebtoken";
 import { verifyPersonalMessageSignature } from "@mysten/sui/verify";
 import { CheckProofRequest, TonProofService } from "../services/ton";
-import { createAuthToken, createPayloadToken, verifyToken } from "../services/jwt";
+import { createAuthToken, createPayloadToken, decodeAuthToken, verifyToken } from "../services/jwt";
 import { TonApiService } from "../services/tonAPI";
+import { unauthorized } from "../services/http-utils";
 export function randomIntFromInterval(min, max) {
   return Math.floor(Math.random() * (max - min + 1) + min);
 }
@@ -83,25 +84,39 @@ export const userController = {
   },
   checkProof: async (req, res) => {
     try {
-      console.log("7s200:1");
-      const body = CheckProofRequest.parse(await req.json());
-      console.log("7s200:body", body);
-
-      const client = TonApiService.create(body.network as any);
+      const client = TonApiService.create(req.body.network as any);
       const service = new TonProofService();
-
-      const isValid = await service.checkProof(body, (address) => client.getWalletPublicKey(address));
+      const isValid = await service.checkProof(req.body, (address) => client.getWalletPublicKey(address));
       if (!isValid) {
         return res.json({ status: 404, message: "INVALID_PROOF" });
       }
 
-      const payloadToken = body.proof.payload;
+      const payloadToken = req.body.proof.payload;
       if (!(await verifyToken(payloadToken))) {
         return res.json({ status: 404, message: "INVALID_TOKEN" });
       }
 
-      const token = await createAuthToken({ address: body.address, network: body.network as any });
+      const token = await createAuthToken({ address: req.body.address, network: req.body.network as any });
       res.json({ status: 200, data: token, message: "GENERATE_PAYLOAD_SUCCESS" });
+    } catch (e) {
+      return res.json({ status: 404, message: "INVALID_REQUEST" });
+    }
+  },
+  getAccountInfo: async (req, res) => {
+    try {
+      const token = req.headers.authorization.replace("Bearer ", "");
+      if (!token || !(await verifyToken(token))) {
+        return unauthorized({ error: "Unauthorized" });
+      }
+
+      const payload = decodeAuthToken(token);
+      if (!payload?.address || !payload?.network) {
+        return unauthorized({ error: "Invalid token" });
+      }
+
+      const client = TonApiService.create(payload.network);
+      const user = await client.getAccountInfo(payload.address);
+      res.json({ status: 200, data: user, message: "GET_ACCOUNT_INFO_SUCCESS" });
     } catch (e) {
       return res.json({ status: 404, message: "INVALID_REQUEST" });
     }

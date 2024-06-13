@@ -19,6 +19,11 @@ import { MongoClient } from "mongodb";
   app.use(cors());
   app.use(express.json());
   app.use(bodyParser.urlencoded({ extended: false }));
+  app.use(
+    express.json({
+      type: ["application/json", "text/plain"],
+    })
+  );
 
   let corsOptions = {
     origin: ["http://localhost:3000"],
