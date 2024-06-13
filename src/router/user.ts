@@ -1,6 +1,9 @@
 import { dbCollection } from "../database/collection";
 import jwt from "jsonwebtoken";
 import { verifyPersonalMessageSignature } from "@mysten/sui/verify";
+import { CheckProofRequest, TonProofService } from "../services/ton";
+import { createAuthToken, createPayloadToken, verifyToken } from "../services/jwt";
+import { TonApiService } from "../services/tonAPI";
 export function randomIntFromInterval(min, max) {
   return Math.floor(Math.random() * (max - min + 1) + min);
 }
@@ -71,5 +74,36 @@ export const userController = {
       return;
     }
     res.json({ status: 404, message: "GET_USER_DATA_FAILD" });
+  },
+  generatePayload: async (req, res) => {
+    const service = new TonProofService();
+    const payload = service.generatePayload();
+    const payloadToken = await createPayloadToken({ payload: payload });
+    res.json({ status: 200, data: payloadToken, message: "GENERATE_PAYLOAD_SUCCESS" });
+  },
+  checkProof: async (req, res) => {
+    try {
+      console.log("7s200:1");
+      const body = CheckProofRequest.parse(await req.json());
+      console.log("7s200:body", body);
+
+      const client = TonApiService.create(body.network as any);
+      const service = new TonProofService();
+
+      const isValid = await service.checkProof(body, (address) => client.getWalletPublicKey(address));
+      if (!isValid) {
+        return res.json({ status: 404, message: "INVALID_PROOF" });
+      }
+
+      const payloadToken = body.proof.payload;
+      if (!(await verifyToken(payloadToken))) {
+        return res.json({ status: 404, message: "INVALID_TOKEN" });
+      }
+
+      const token = await createAuthToken({ address: body.address, network: body.network as any });
+      res.json({ status: 200, data: token, message: "GENERATE_PAYLOAD_SUCCESS" });
+    } catch (e) {
+      return res.json({ status: 404, message: "INVALID_REQUEST" });
+    }
   },
 };

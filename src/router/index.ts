@@ -14,6 +14,10 @@ routes.get("/get-user", authenToken, userController.getUser);
 routes.get("/login-message", userController.message);
 routes.post("/login-verify-account", userController.verify);
 
+// ton
+routes.post("/generate_payload", userController.generatePayload);
+routes.post("/check_proof", userController.checkProof);
+
 routes.post("/new-game", gameController.newGame);
 routes.get("/legal-moves/:gameId/:position", gameController.legalMoves);
 routes.post("/make-move/:from/:to", gameController.makeMove);

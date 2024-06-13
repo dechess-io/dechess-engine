@@ -43,7 +43,7 @@ import { MongoClient } from "mongodb";
 
   const io = new Server({
     cors: {
-      origin: ["http://localhost:3000"],
+      origin: ["http://localhost:3000", "https://localhost:5173"],
     },
   }).listen(http);
 
