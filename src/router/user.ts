@@ -99,6 +99,7 @@ export const userController = {
       const token = await createAuthToken({ address: req.body.address, network: req.body.network as any });
       res.json({ status: 200, data: token, message: "GENERATE_PAYLOAD_SUCCESS" });
     } catch (e) {
+      console.log("7s200:err", e);
       return res.json({ status: 404, message: "INVALID_REQUEST" });
     }
   },

@@ -14,11 +14,17 @@ import { Chess, Chess as ChessV2, Square } from "./engine/chess2";
 import { DEFAULT_0X0_ADDRESS, TGame, gameController } from "./router/game";
 import abi from "./abi/dechesscontract.json";
 import { MongoClient } from "mongodb";
+import { verifyToken } from "./services/jwt";
 
 (async function main() {
   app.use(cors());
   app.use(express.json());
   app.use(bodyParser.urlencoded({ extended: false }));
+  app.use(
+    express.json({
+      type: ["application/json", "text/plain"],
+    })
+  );
 
   let corsOptions = {
     origin: ["http://localhost:3000", "http://localhost:5173", "https://localhost:5173", "https://miniapp.dechess.io"],
@@ -49,10 +55,11 @@ import { MongoClient } from "mongodb";
 
   const waitingQueue = []; // Queue to store users waiting for a match
 
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     if (socket.handshake.headers.authorization) {
       const token = socket.handshake.headers.authorization.toString();
-      (socket as any).user = token;
+      const verified = await verifyToken(token);
+      (socket as any).user = verified;
       return next();
       // jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, async (err, decodedToken) => {
       //   if (err) {
@@ -70,17 +77,14 @@ import { MongoClient } from "mongodb";
       //   return next();
       // });
     } else {
-      // console.log("7s200:socketerr:");
       return;
     }
   }).on("connection", (socket) => {
-    console.log("New socket connection", (socket as any).user);
+    console.log("New socket connection", (socket as any).user.address);
 
     socket.on("createGame", async function (callback) {
       const user = (socket as any).user;
-      let userIndex = waitingQueue.findIndex((item) => item.user === user);
-
-      console.log(waitingQueue.length);
+      let userIndex = waitingQueue.findIndex((item) => item.user.address === user.address);
 
       if (userIndex !== -1) {
         waitingQueue[userIndex].socket = socket;
@@ -94,8 +98,8 @@ import { MongoClient } from "mongodb";
           const chess = new ChessV2();
           const board = {
             game_id: id,
-            player_1: opponent.user,
-            player_2: user,
+            player_1: opponent.user.address,
+            player_2: user.address,
             board: chess.board(),
             score: 0,
             turn_player: chess.turn(),
@@ -122,7 +126,7 @@ import { MongoClient } from "mongodb";
             opponent.callback({ status: 500 });
           }
         } else {
-          waitingQueue.push({ user, socket, callback });
+          waitingQueue.push({ user: user.address, socket, callback });
           // Inform the current player about waiting
           socket.emit("createGame", { status: 202 });
         }
@@ -141,10 +145,10 @@ import { MongoClient } from "mongodb";
       if ((board as any).isGameDraw || (board as any).isGameOver) {
         return;
       }
-      if (board.player_1 !== user && board.turn_player === "w") {
+      if (board.player_1 !== user.address && board.turn_player === "w") {
         return;
       }
-      if (board.player_2 !== user && board.turn_player === "b") {
+      if (board.player_2 !== user.address && board.turn_player === "b") {
         return;
       }
 
