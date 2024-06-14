@@ -1,4 +1,4 @@
 import { MongoClient } from "mongodb";
 
-const uri = "mongodb://0.0.0.0:27017/";
+const uri = process.env.MONGODB_URL!;
 export const client = new MongoClient(uri);
