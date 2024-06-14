@@ -19,14 +19,9 @@ import { MongoClient } from "mongodb";
   app.use(cors());
   app.use(express.json());
   app.use(bodyParser.urlencoded({ extended: false }));
-  app.use(
-    express.json({
-      type: ["application/json", "text/plain"],
-    })
-  );
 
   let corsOptions = {
-    origin: ["http://localhost:3000"],
+    origin: ["http://localhost:3000", "http://localhost:5173", "https://localhost:5173", "https://miniapp.dechess.io"],
     credentials: true,
   };
 
@@ -48,7 +43,7 @@ import { MongoClient } from "mongodb";
 
   const io = new Server({
     cors: {
-      origin: ["http://localhost:3000", "https://localhost:5173"],
+      origin: ["https://localhost:5173","https://miniapp.dechess.io"],
     },
   }).listen(http);
 
@@ -57,21 +52,23 @@ import { MongoClient } from "mongodb";
   io.use((socket, next) => {
     if (socket.handshake.headers.authorization) {
       const token = socket.handshake.headers.authorization.toString();
-      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, async (err, decodedToken) => {
-        if (err) {
-          // console.log("7s200:socket:auth:err", err, decodedToken);
-          return;
-        }
-        // const { collection } = await dbCollection<any>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_USERS!);
-        // const userData = await collection.findOne({ address: decodedToken.address });
-        // // console.log("7s200:userData", userData);
-        // if (!userData) {
-        //   // console.log("7s200:socket:auth:err:userData", userData, decodedToken);
-        //   return;
-        // }
-        (socket as any).user = decodedToken.address;
-        return next();
-      });
+      (socket as any).user = token;
+      return next();
+      // jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, async (err, decodedToken) => {
+      //   if (err) {
+      //     // console.log("7s200:socket:auth:err", err, decodedToken);
+      //     // return;
+      //   }
+      //   // const { collection } = await dbCollection<any>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_USERS!);
+      //   // const userData = await collection.findOne({ address: decodedToken.address });
+      //   // // console.log("7s200:userData", userData);
+      //   // if (!userData) {
+      //   //   // console.log("7s200:socket:auth:err:userData", userData, decodedToken);
+      //   //   return;
+      //   // }
+      //   (socket as any).user = decodedToken.address;
+      //   return next();
+      // });
     } else {
       // console.log("7s200:socketerr:");
       return;
@@ -81,45 +78,54 @@ import { MongoClient } from "mongodb";
 
     socket.on("createGame", async function (callback) {
       const user = (socket as any).user;
+      let userIndex = waitingQueue.findIndex((item) => item.user === user);
 
-      if (waitingQueue.length > 0) {
-        const time = Date.now();
-        const id = md5(time);
-        const opponent = waitingQueue.shift();
-        const chess = new ChessV2();
-        const board = {
-          game_id: id,
-          player_1: opponent.user,
-          player_2: user,
-          board: chess.board(),
-          score: 0,
-          turn_player: chess.turn(),
-          move_number: chess.moveNumber(),
-          fen: chess.fen(),
-          isPaymentMatch: false,
-          payAmount: 10_000_000_000_000,
-          pays: {
-            gameIndex: null,
-            player1: 0,
-            player2: 0,
-          },
-        };
+      console.log(waitingQueue.length);
 
-        const { collection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
-        const insert = await collection.insertOne(board);
-        if (insert) {
-          socket.join(board.game_id);
-          opponent.socket.join(board.game_id);
-          socket.emit("createGame", { status: 200, board });
-          opponent.socket.emit("createGame", { status: 200, board });
-        } else {
-          callback({ status: 500 });
-          opponent.callback({ status: 500 });
-        }
-      } else {
-        waitingQueue.push({ user, socket, callback });
-        // Inform the current player about waiting
+      if (userIndex !== -1) {
+        waitingQueue[userIndex].socket = socket;
+        waitingQueue[userIndex].callback = callback;
         socket.emit("createGame", { status: 202 });
+      } else {
+        if (waitingQueue.length > 0) {
+          const time = Date.now();
+          const id = md5(time);
+          const opponent = waitingQueue.shift();
+          const chess = new ChessV2();
+          const board = {
+            game_id: id,
+            player_1: opponent.user,
+            player_2: user,
+            board: chess.board(),
+            score: 0,
+            turn_player: chess.turn(),
+            move_number: chess.moveNumber(),
+            fen: chess.fen(),
+            isPaymentMatch: false,
+            payAmount: 10_000_000_000_000,
+            pays: {
+              gameIndex: null,
+              player1: 0,
+              player2: 0,
+            },
+          };
+
+          const { collection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
+          const insert = await collection.insertOne(board);
+          if (insert) {
+            socket.join(board.game_id);
+            opponent.socket.join(board.game_id);
+            socket.emit("createGame", { status: 200, board });
+            opponent.socket.emit("createGame", { status: 200, board });
+          } else {
+            callback({ status: 500 });
+            opponent.callback({ status: 500 });
+          }
+        } else {
+          waitingQueue.push({ user, socket, callback });
+          // Inform the current player about waiting
+          socket.emit("createGame", { status: 202 });
+        }
       }
     });
 
@@ -148,7 +154,6 @@ import { MongoClient } from "mongodb";
           chess.move({
             from: from,
             to: to,
-            // promotion: "q",
           });
         } else {
           chess.move({
