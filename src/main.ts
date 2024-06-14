@@ -84,7 +84,9 @@ import { verifyToken } from "./services/jwt";
 
     socket.on("createGame", async function (callback) {
       const user = (socket as any).user;
-      let userIndex = waitingQueue.findIndex((item) => item.user.address === user.address);
+      console.log("7s200:waiting", waitingQueue);
+
+      let userIndex = waitingQueue.findIndex((item) => item.user === user.address);
 
       if (userIndex !== -1) {
         waitingQueue[userIndex].socket = socket;
@@ -92,13 +94,14 @@ import { verifyToken } from "./services/jwt";
         socket.emit("createGame", { status: 202 });
       } else {
         if (waitingQueue.length > 0) {
+          console.log("success");
           const time = Date.now();
           const id = md5(time);
           const opponent = waitingQueue.shift();
           const chess = new ChessV2();
           const board = {
             game_id: id,
-            player_1: opponent.user.address,
+            player_1: opponent.user,
             player_2: user.address,
             board: chess.board(),
             score: 0,
@@ -113,7 +116,7 @@ import { verifyToken } from "./services/jwt";
               player2: 0,
             },
           };
-
+          console.log("7s200:board", board);
           const { collection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
           const insert = await collection.insertOne(board);
           if (insert) {
@@ -127,7 +130,6 @@ import { verifyToken } from "./services/jwt";
           }
         } else {
           waitingQueue.push({ user: user.address, socket, callback });
-          // Inform the current player about waiting
           socket.emit("createGame", { status: 202 });
         }
       }
