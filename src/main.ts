@@ -32,7 +32,7 @@ import { verifyToken } from "./services/jwt";
   };
 
   app.get("/ping", (req, res) => {
-    res.json("pong 17");
+    res.json("pong 18");
   });
   // app.get("/get-game-V2", cors(corsOptions), gameController.getGamesV2);
   // app.use("/", cors(corsOptions), routes);
@@ -49,7 +49,7 @@ import { verifyToken } from "./services/jwt";
 
   const io = new Server({
     cors: {
-      origin: ["https://localhost:5173", "https://www.miniapp.dechess.io", "https://miniapp.dechess.io"],
+      origin: ["https://localhost:5173", "http://miniapp.dechess.io", "https://www.miniapp.dechess.io", "https://miniapp.dechess.io"],
     },
   }).listen(http);
 
