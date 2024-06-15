@@ -32,7 +32,8 @@ import { verifyToken } from "./services/jwt";
   };
 
   app.get("/ping", (req, res) => {
-    res.json("pong 18");
+    var env = process.env.ACCESS_TOKEN_SECRET;
+    res.json(env);
   });
   // app.get("/get-game-V2", cors(corsOptions), gameController.getGamesV2);
   // app.use("/", cors(corsOptions), routes);
