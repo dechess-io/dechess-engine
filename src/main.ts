@@ -54,7 +54,7 @@ import { verifyToken } from "./services/jwt";
     },
   }).listen(http);
 
-  const waitingQueue = []; // Queue to store users waiting for a match
+  let waitingQueue = []; // Queue to store users waiting for a match
 
   io.use(async (socket, next) => {
     if (socket.handshake.headers.authorization) {
@@ -134,6 +134,12 @@ import { verifyToken } from "./services/jwt";
           socket.emit("createGame", { status: 202 });
         }
       }
+    });
+
+    socket.on("cancelCreateGame", async function (callback) {
+      const user = (socket as any).user;
+      waitingQueue = waitingQueue.filter((item) => item.user !== user.address);
+      callback({ status: 200, message: "Game creation cancelled successfully." });
     });
 
     socket.on("move", async function (move) {
