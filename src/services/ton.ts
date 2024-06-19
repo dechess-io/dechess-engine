@@ -5,7 +5,7 @@ import { randomBytes, sign } from "tweetnacl";
 
 const tonProofPrefix = "ton-proof-item-v2/";
 const tonConnectPrefix = "ton-connect";
-const allowedDomains = ["ton-connect.github.io", "localhost:5173"];
+const allowedDomains = ["ton-connect.github.io", "localhost:5173", "miniapp.dechess.io"];
 const validAuthTime = 15 * 60; // 15 minute
 
 import zod from "zod";
@@ -53,6 +53,7 @@ export class TonProofService {
       // 2. If the smart contract is not deployed yet, or the get-method is missing, you need:
       //  2.1. Parse TonAddressItemReply.walletStateInit and get public key from stateInit. You can compare the walletStateInit.code
       //  with the code of standard wallets contracts and parse the data according to the found wallet version.
+
       let publicKey = tryParsePublicKey(stateInit) ?? (await getWalletPublicKey(payload.address));
       if (!publicKey) {
         return false;
@@ -118,6 +119,7 @@ export class TonProofService {
 
       return sign.detached.verify(result, message.signature, publicKey);
     } catch (e) {
+      console.log("7s200:err", e);
       return false;
     }
   }
