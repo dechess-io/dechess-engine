@@ -86,7 +86,9 @@ export const userController = {
     try {
       const client = TonApiService.create(req.body.network as any);
       const service = new TonProofService();
+      console.log("7s200:checkProof:body", req.body);
       const isValid = await service.checkProof(req.body, (address) => client.getWalletPublicKey(address));
+      console.log("7s200:checkProof:isValid", isValid);
       if (!isValid) {
         return res.json({ status: 404, message: "INVALID_PROOF" });
       }
