@@ -83,7 +83,7 @@ import { verifyToken } from "./services/jwt";
   }).on("connection", (socket) => {
     console.log("New socket connection", (socket as any).user.address);
 
-    socket.on("createGame", async function (callback) {
+    socket.on("createGame", async function ({ timeStep, additionTimePerMove }, callback) {
       const user = (socket as any).user;
       console.log("7s200:waiting", waitingQueue);
 
@@ -92,13 +92,17 @@ import { verifyToken } from "./services/jwt";
       if (userIndex !== -1) {
         waitingQueue[userIndex].socket = socket;
         waitingQueue[userIndex].callback = callback;
+        waitingQueue[userIndex].timeStep = timeStep;
+        waitingQueue[userIndex].additionTimePerMove = additionTimePerMove;
         socket.emit("createGame", { status: 202 });
       } else {
-        if (waitingQueue.length > 0) {
+        let opponentIndex = waitingQueue.findIndex((item) => item.timeStep === timeStep && item.additionTimePerMove === additionTimePerMove);
+
+        if (opponentIndex !== -1) {
           console.log("success");
           const time = Date.now();
           const id = md5(time);
-          const opponent = waitingQueue.shift();
+          const opponent = waitingQueue.splice(opponentIndex, 1)[0]; // Remove opponent from the queue
           const chess = new ChessV2();
           const board = {
             game_id: id,
@@ -108,6 +112,12 @@ import { verifyToken } from "./services/jwt";
             score: 0,
             turn_player: chess.turn(),
             move_number: chess.moveNumber(),
+            time: timeStep,
+            timePerMove: additionTimePerMove,
+            timers: {
+              player1Timer: timeStep * 60,
+              player2Timer: timeStep * 60,
+            },
             fen: chess.fen(),
             isPaymentMatch: false,
             payAmount: 10_000_000_000_000,
@@ -130,7 +140,8 @@ import { verifyToken } from "./services/jwt";
             opponent.callback({ status: 500 });
           }
         } else {
-          waitingQueue.push({ user: user.address, socket, callback });
+          // No matching opponent found, add the current user to the waiting queue
+          waitingQueue.push({ user: user.address, socket, callback, timeStep, additionTimePerMove });
           socket.emit("createGame", { status: 202 });
         }
       }
@@ -145,8 +156,7 @@ import { verifyToken } from "./services/jwt";
     socket.on("move", async function (move) {
       const user = (socket as any).user;
 
-      const { from, to, turn, address, isPromotion, fen, game_id, promotion } = move; //fake fen'
-      console.log(isPromotion);
+      const { from, to, turn, address, isPromotion, fen, game_id, promotion, timers } = move; //fake fen'
       socket.join(game_id);
 
       const { collection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
@@ -191,7 +201,8 @@ import { verifyToken } from "./services/jwt";
         },
       };
 
-      io.to(game_id).emit("newmove", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen() });
+      io.to(game_id).emit("newmove", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen(), timers });
+      console.log(timers);
       // console.log("7s200:move:7", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen() });
 
       await collection
