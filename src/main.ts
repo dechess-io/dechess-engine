@@ -147,6 +147,22 @@ import { verifyToken } from "./services/jwt";
       }
     });
 
+    socket.on("endGame", async function (data) {
+      const user = (socket as any).user;
+      const { game_id, isGameDraw, isGameOver } = data;
+      socket.join(game_id);
+      const { collection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
+      const board = await collection.findOne({ game_id: game_id });
+      (board as any).isGameOver = isGameOver;
+      (board as any).isGameDraw = isGameDraw;
+      await collection
+        .findOneAndUpdate({ game_id: board.game_id }, board)
+        .then((data) => {})
+        .catch((err) => {
+          // console.log("7s200:err", err);
+        });
+    });
+
     socket.on("cancelCreateGame", async function (callback) {
       const user = (socket as any).user;
       waitingQueue = waitingQueue.filter((item) => item.user !== user.address);
@@ -157,6 +173,7 @@ import { verifyToken } from "./services/jwt";
       const user = (socket as any).user;
 
       const { from, to, turn, address, isPromotion, fen, game_id, promotion, timers } = move; //fake fen'
+      console.log(timers);
       socket.join(game_id);
 
       const { collection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
