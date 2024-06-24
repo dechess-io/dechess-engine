@@ -172,8 +172,7 @@ import { verifyToken } from "./services/jwt";
     socket.on("move", async function (move) {
       const user = (socket as any).user;
 
-      const { from, to, turn, address, isPromotion, fen, game_id, promotion, timers } = move; //fake fen'
-      console.log(timers);
+      const { from, to, turn, address, isPromotion, fen, game_id, promotion, timers, san } = move; //fake fen'
       socket.join(game_id);
 
       const { collection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
@@ -218,8 +217,7 @@ import { verifyToken } from "./services/jwt";
         },
       };
 
-      io.to(game_id).emit("newmove", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen(), timers });
-      console.log(timers);
+      io.to(game_id).emit("newmove", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen(), timers, san });
       // console.log("7s200:move:7", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen() });
 
       await collection
