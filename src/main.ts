@@ -233,6 +233,12 @@ import { verifyToken } from "./services/jwt";
         });
     });
 
+    socket.on("message", async function (data) {
+      const { game_id, message } = data;
+      socket.join(game_id);
+      socket.to(game_id).emit("message", message);
+    });
+
     socket.on("joinGame", async function (data) {
       const { collection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
       const board = await collection.findOne({ game_id: data.game_id });
