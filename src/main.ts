@@ -126,6 +126,10 @@ import { verifyToken } from "./services/jwt";
               player1: 0,
               player2: 0,
             },
+            isGameOver: false,
+            isGameDraw: false,
+            winner: null,
+            loser: null,
           };
           console.log("7s200:board", board);
           const { collection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
@@ -161,6 +165,88 @@ import { verifyToken } from "./services/jwt";
         .catch((err) => {
           // console.log("7s200:err", err);
         });
+    });
+
+    socket.on("abort", async function (data) {
+      const user = (socket as any).user;
+      const { game_id, winner, loser } = data;
+      socket.join(game_id);
+      const { collection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
+      const board = await collection.findOne({ game_id: game_id });
+      (board as any).isGameOver = true;
+
+      await collection
+        .findOneAndUpdate(
+          { game_id: board.game_id },
+          {
+            $set: {
+              isGameOver: true,
+              winner,
+              loser,
+            },
+          }
+        )
+        .then((data) => {})
+        .catch((err) => {
+          // console.log("7s200:err", err);
+        });
+      socket.to(game_id).emit("opponentAbort");
+    });
+
+    socket.on("resign", async function (data) {
+      const user = (socket as any).user;
+      const { game_id, loser, winner } = data;
+      socket.join(game_id);
+      const { collection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
+      const board = await collection.findOne({ game_id: game_id });
+      (board as any).isGameOver = true;
+      await collection
+        .findOneAndUpdate(
+          { game_id: board.game_id },
+          {
+            $set: {
+              isGameOver: true,
+              winner,
+              loser,
+            },
+          }
+        )
+        .then((data) => {})
+        .catch((err) => {
+          // console.log("7s200:err", err);
+        });
+      socket.to(game_id).emit("opponentResign");
+    });
+
+    socket.on("drawRequest", (data) => {
+      const { game_id } = data;
+      socket.to(game_id).emit("opponentDrawRequest");
+    });
+
+    socket.on("confirmDraw", async function (data) {
+      console.log("confirmDraw");
+      const user = (socket as any).user;
+      const { game_id } = data;
+      socket.join(game_id);
+      const { collection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
+      const board = await collection.findOne({ game_id: game_id });
+      (board as any).isGameOver = true;
+      (board as any).isGameDraw = true;
+      await collection
+        .findOneAndUpdate(
+          { game_id: board.game_id },
+          {
+            $set: {
+              isGameOver: true,
+              isGameDraw: true,
+            },
+          }
+        )
+        .then((data) => {})
+        .catch((err) => {
+          // console.log("7s200:err", err);
+        });
+      io.to(game_id).emit("drawConfirmed");
     });
 
     socket.on("cancelCreateGame", async function (callback) {
@@ -202,7 +288,7 @@ import { verifyToken } from "./services/jwt";
           });
         }
       } catch (error) {
-        console.log(error);
+        // console.log(error);
       }
       const isGameOver = chess.isGameOver();
       const isGameDraw = chess.isDraw();
