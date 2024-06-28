@@ -1,5 +1,6 @@
 import express from "express";
 import { client } from "./database";
+import redisClient from "./cache/init.js";
 import routes from "./router";
 import cors from "cors";
 const app = express();
@@ -31,15 +32,34 @@ import { verifyToken } from "./services/jwt";
     credentials: true,
   };
 
-  app.get("/ping", (req, res) => {
-    var env = process.env.ACCESS_TOKEN_SECRET;
-    res.json(env);
-  });
   // app.get("/get-game-V2", cors(corsOptions), gameController.getGamesV2);
   // app.use("/", cors(corsOptions), routes);
+
   app.use(cors(), routes);
 
   await client.connect().catch((err) => console.log("7s200:err", err));
+  await redisClient.connect();
+
+  app.get("/ping", (req, res) => {
+    res.json("pong");
+  });
+
+  app.get("/check-redis", async (req, res) => {
+    await redisClient.set("de-chess", "health");
+    const result = await redisClient.get("de-chess");
+    res.json(result);
+  });
+
+  app.get("/get-all-redis", async (req, res) => {
+    const keys = await redisClient.keys("*");
+    const results = {};
+    for (let key of keys) {
+      const value = await redisClient.get(key);
+      results[key] = value;
+    }
+    res.json(results);
+  });
+
   client.on("close", () => {
     client.connect();
   });
