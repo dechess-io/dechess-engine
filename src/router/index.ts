@@ -19,10 +19,6 @@ routes.post("/generate_payload", userController.generatePayload);
 routes.post("/check_proof", userController.checkProof);
 routes.get("/get_account_info", userController.getAccountInfo);
 
-routes.post("/new-game", gameController.newGame);
-routes.get("/legal-moves/:gameId/:position", gameController.legalMoves);
-routes.post("/make-move/:from/:to", gameController.makeMove);
-
 routes.post("/new-game-v2", authenToken, gameController.newGameV2);
 routes.get("/load-game-v2", gameController.loadGameV2);
 routes.get("/get-game-v2", authenToken, gameController.getGamesV2);

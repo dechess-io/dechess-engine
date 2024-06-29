@@ -29,7 +29,7 @@ function buildCreateToken<T extends JWTPayload>(expirationTime: string): (payloa
   };
 }
 
-export const createAuthToken = buildCreateToken<AuthToken>("1Y");
+export const createAuthToken = buildCreateToken<AuthToken>("1D");
 export const createPayloadToken = buildCreateToken<PayloadToken>("15m");
 
 /**

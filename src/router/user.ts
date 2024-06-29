@@ -104,6 +104,7 @@ export const userController = {
     }
   },
   getAccountInfo: async (req, res) => {
+    console.log("7s200:req", req);
     try {
       const token = req.headers.authorization.replace("Bearer ", "");
       if (!token || !(await verifyToken(token))) {
