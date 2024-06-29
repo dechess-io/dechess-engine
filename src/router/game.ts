@@ -3,6 +3,7 @@ import Chess from "../engine/chess";
 import { dbCollection } from "../database/collection";
 import { Chess as ChessV2 } from "../engine/chess2";
 import md5 from "md5";
+import redisClient from "../cache/init.js";
 
 export type TGame = {
   game_id: string;
@@ -15,6 +16,9 @@ export type TGame = {
   fen: string;
 };
 
+// const redisClient: any = initializeRedis().catch(err => {
+//   console.error('Failed to initialize Redis client:', err);
+// });
 export const DEFAULT_0X0_ADDRESS = "5HrN7fHLXWcFiXPwwtq2EkSGns9eMt5P7SpeTPewumZy6ftb";
 
 export const gameController = {
@@ -171,9 +175,12 @@ export const gameController = {
     const { game_id } = req.query;
     const query = { game_id: game_id };
 
-    const { collection: gameCollection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
-    const game = await gameCollection.findOne(query);
-
+    // const { collection: gameCollection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
+    // const game = await gameCollection.findOne(query);
+    // const redisClient = getRedisClient()
+    const cachedGame = await redisClient.get(game_id);
+    const game = JSON.parse(cachedGame);
+    console.log("game " + game);
     res.json({ game });
   },
 
