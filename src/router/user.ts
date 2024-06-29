@@ -5,6 +5,7 @@ import { CheckProofRequest, TonProofService } from "../services/ton";
 import { createAuthToken, createPayloadToken, decodeAuthToken, verifyToken } from "../services/jwt";
 import { TonApiService } from "../services/tonAPI";
 import { unauthorized } from "../services/http-utils";
+import { INIT_BEGINER_ELO } from "../utils/elo";
 export function randomIntFromInterval(min, max) {
   return Math.floor(Math.random() * (max - min + 1) + min);
 }
@@ -123,17 +124,56 @@ export const userController = {
       return res.json({ status: 404, message: "INVALID_REQUEST" });
     }
   },
-};
+  updateElo: async (req, res) => {
+    const Ra = 1400;
+    const Rb = 1200;
+    const E_A = 1 / (1 + Math.pow(10, (Rb - Ra) / 400));
+    const E_B = 1 / (1 + Math.pow(10, (Ra - Rb) / 400));
+    const newRaWin = Ra + 32 * (1 - E_A);
+    const newRaLoss = Ra + 32 * (0 - E_A);
+    const newRaDraw = Ra + 32 * (0.5 - E_A);
 
-//  {
-//   "address": '0:05c059e253d1e404279800aa40293e7bbcc9525d18f05b017e3e52d800f671e8',
-//   "network": '-239',
-//   "public_key": '783212be56e7b61132687d2d646e15d85c333d2cb74b22a31aba1d908af1df8f',
-//   "proof": {
-//     "timestamp": 1718802061,
-//     "domain": { "lengthBytes": 18, "value": 'miniapp.dechess.io' },
-//     "signature": 'n/eeMa1mNaEEfTKXYJcEYts9eTr18csG3yY8876ceysvbdF36wiq86tsv365xf4pALoJeTmmwe0bkw+n2vDrAA==',
-//     "payload": 'eyJhbGciOiJIUzI1NiJ9.eyJwYXlsb2FkIjoiOWZkOWZlMjc4YjRmMWFiZjg3NDcxMTI0ZDM2YTI5MWIyNjNlYjE3ODI5ZGM5MzhhYjFkZjBjYzlkNmJjOGUyNCIsImlhdCI6MTcxODgwMjA1MywiZXhwIjoxNzE4ODAyOTUzfQ.EcZ7hRVLU9bbJoxOJZ6ZXyVaq2dta2sKk_BwczGn1HY',
-//     "state_init": 'te6cckECFgEAAwQAAgE0AgEAUQAAAAApqaMXeDISvlbnthEyaH0tZG4V2FwzPSy3SyKjGrodkIrx349AART/APSkE/S88sgLAwIBIAkEBPjygwjXGCDTH9Mf0x8C+CO78mTtRNDTH9Mf0//0BNFRQ7ryoVFRuvKiBfkBVBBk+RDyo/gAJKTIyx9SQMsfUjDL/1IQ9ADJ7VT4DwHTByHAAJ9sUZMg10qW0wfUAvsA6DDgIcAB4wAhwALjAAHAA5Ew4w0DpMjLHxLLH8v/CAcGBQAK9ADJ7VQAbIEBCNcY+gDTPzBSJIEBCPRZ8qeCEGRzdHJwdIAYyMsFywJQBc8WUAP6AhPLassfEss/yXP7AABwgQEI1xj6ANM/yFQgR4EBCPRR8qeCEG5vdGVwdIAYyMsFywJQBs8WUAT6AhTLahLLH8s/yXP7AAIAbtIH+gDU1CL5AAXIygcVy//J0Hd0gBjIywXLAiLPFlAF+gIUy2sSzMzJc/sAyEAUgQEI9FHypwICAUgTCgIBIAwLAFm9JCtvaiaECAoGuQ+gIYRw1AgIR6STfSmRDOaQPp/5g3gSgBt4EBSJhxWfMYQCASAODQARuMl+1E0NcLH4AgFYEg8CASAREAAZrx32omhAEGuQ64WPwAAZrc52omhAIGuQ64X/wAA9sp37UTQgQFA1yH0BDACyMoHy//J0AGBAQj0Cm+hMYALm0AHQ0wMhcbCSXwTgItdJwSCSXwTgAtMfIYIQcGx1Z70ighBkc3RyvbCSXwXgA/pAMCD6RAHIygfL/8nQ7UTQgQFA1yH0BDBcgQEI9ApvoTGzkl8H4AXTP8glghBwbHVnupI4MOMNA4IQZHN0crqSXwbjDRUUAIpQBIEBCPRZMO1E0IEBQNcgyAHPFvQAye1UAXKwjiOCEGRzdHKDHrFwgBhQBcsFUAPPFiP6AhPLassfyz/JgED7AJJfA+IAeAH6APQEMPgnbyIwUAqhIb7y4FCCEHBsdWeDHrFwgBhQBMsFJs8WWPoCGfQAy2kXyx9SYMs/IMmAQPsABlWBMNI='
-//   }
-//  }
+    const newRbWin = Rb + 32 * (1 - E_B);
+    const newRbLoss = Rb + 32 * (0 - E_B);
+    const newRbDraw = Rb + 32 * (0.5 - E_B);
+
+    res.json({
+      newRaWin,
+      newRaLoss,
+      newRaDraw,
+      newRbWin,
+      newRbLoss,
+      newRbDraw,
+    });
+  },
+  newUserWithElo: async (req, res) => {
+    try {
+      console.log("7s200:req", req.body);
+      const { collection } = await dbCollection<any>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_USERS!);
+      const userInfo = await collection.findOne({ address: req.body.address });
+      console.log("7s200:userInfo", userInfo);
+      if (userInfo) {
+        return res.json({
+          status: 501,
+          message: "USER_EXITED",
+        });
+      }
+      const newUser = await collection.insertOne({ address: req.body.address, elo: INIT_BEGINER_ELO });
+      if (!newUser) {
+        return res.json({
+          status: 503,
+          message: "CREATE_USER_FAILED",
+        });
+      }
+      return res.json({
+        status: 200,
+        message: "CREATE_user_SUCCESS",
+      });
+    } catch (error) {
+      return res.json({
+        status: 503,
+        message: "CREATE_USER_FAILeD",
+      });
+    }
+  },
+};

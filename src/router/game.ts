@@ -1,6 +1,7 @@
 import { dbCollection } from "../database/collection";
 import { Chess as ChessV2 } from "../engine/chess";
 import md5 from "md5";
+import redisClient from "../cache/init.js";
 
 export type TGame = {
   game_id: string;
@@ -51,9 +52,12 @@ export const gameController = {
     const { game_id } = req.query;
     const query = { game_id: game_id };
 
-    const { collection: gameCollection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
-    const game = await gameCollection.findOne(query);
-
+    // const { collection: gameCollection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
+    // const game = await gameCollection.findOne(query);
+    // const redisClient = getRedisClient()
+    const cachedGame = await redisClient.get(game_id);
+    const game = JSON.parse(cachedGame);
+    console.log("game " + game);
     res.json({ game });
   },
 
