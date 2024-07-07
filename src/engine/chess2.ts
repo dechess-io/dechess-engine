@@ -1694,7 +1694,7 @@ export class Chess {
         new RegExp(`({[^}]*})+?|;([^${mask(newlineChar)}]*)`, "g"),
         function (_match, bracket, semicolon) {
           return bracket !== undefined ? encodeComment(bracket) : " " + encodeComment(`{${semicolon.slice(1)}}`);
-        }
+        },
       )
       .replace(new RegExp(mask(newlineChar), "g"), " ");
 
@@ -1855,7 +1855,7 @@ export class Chess {
     let overlyDisambiguated = false;
 
     matches = cleanMove.match(
-      /([pnbrqkPNBRQK])?([a-h][1-8])x?-?([a-h][1-8])([qrbnQRBN])?/
+      /([pnbrqkPNBRQK])?([a-h][1-8])x?-?([a-h][1-8])([qrbnQRBN])?/,
       //     piece         from              to       promotion
     );
 
