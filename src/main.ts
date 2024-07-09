@@ -61,7 +61,7 @@ cron.schedule("0 */2 * * *", syncGames);
   app.use(
     express.json({
       type: ["application/json", "text/plain"],
-    })
+    }),
   );
 
   let corsOptions = {
@@ -191,17 +191,6 @@ cron.schedule("0 */2 * * *", syncGames);
           opponent.socket.join(board.game_id);
           socket.emit("createGame", { status: 200, board });
           opponent.socket.emit("createGame", { status: 200, board });
-          // const { collection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
-          // const insert = await collection.insertOne(board);
-          // if (insert) {
-          //   socket.join(board.game_id);
-          //   opponent.socket.join(board.game_id);
-          //   socket.emit("createGame", { status: 200, board });
-          //   opponent.socket.emit("createGame", { status: 200, board });
-          // } else {
-          //   callback({ status: 500 });
-          //   opponent.callback({ status: 500 });
-          // }
         } else {
           // No matching opponent found, add the current user to the waiting queue
           waitingQueue.push({ user: user.address, socket, callback, timeStep, additionTimePerMove });
@@ -221,21 +210,11 @@ cron.schedule("0 */2 * * *", syncGames);
         const cachedBoard = JSON.parse(cachedData);
         cachedBoard.isGameDraw = isGameDraw;
         cachedBoard.isGameOver = isGameOver;
-
+        console.log("Hello");
         await redisClient.set(game_id, JSON.stringify(cachedBoard));
       } else {
         console.error(`Game with Id ${game_id} not found in cache`);
       }
-      // const { collection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
-      // const board = await collection.findOne({ game_id: game_id });
-      // (board as any).isGameOver = isGameOver;
-      // (board as any).isGameDraw = isGameDraw;
-      // await collection
-      //   .findOneAndUpdate({ game_id: board.game_id }, board)
-      //   .then((data) => {})
-      //   .catch((err) => {
-      //     // console.log("7s200:err", err);
-      //   });
     });
 
     socket.on("abort", async function (data) {
@@ -286,24 +265,6 @@ cron.schedule("0 */2 * * *", syncGames);
       const user = (socket as any).user;
       const { game_id } = data;
       socket.join(game_id);
-      // const { collection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
-      // const board = await collection.findOne({ game_id: game_id });
-      // (board as any).isGameOver = true;
-      // (board as any).isGameDraw = true;
-      // await collection
-      //   .findOneAndUpdate(
-      //     { game_id: board.game_id },
-      //     {
-      //       $set: {
-      //         isGameOver: true,
-      //         isGameDraw: true,
-      //       },
-      //     }
-      //   )
-      //   .then((data) => {})
-      //   .catch((err) => {
-      //     // console.log("7s200:err", err);
-      //   });
       const cachedData = await redisClient.get(game_id);
 
       if (cachedData) {
@@ -367,17 +328,6 @@ cron.schedule("0 */2 * * *", syncGames);
       }
       const isGameOver = chess.isGameOver();
       const isGameDraw = chess.isDraw();
-      // const newBoard = {
-      //   $set: {
-      //     board: chess.board(),
-      //     turn_player: chess.turn(),
-      //     move_number: chess.moveNumber(),
-      //     fen: chess.fen(),
-      //     isGameDraw: isGameDraw,
-      //     isGameOver: isGameOver,
-      //   },
-      // };
-
       board.isGameDraw = isGameDraw;
       board.isGameOver = isGameOver;
       board.board = chess.board();
@@ -395,6 +345,22 @@ cron.schedule("0 */2 * * *", syncGames);
       const { game_id, message } = data;
       socket.join(game_id);
       socket.to(game_id).emit("message", message);
+    });
+
+    socket.on("reconnect", async function () {
+      try {
+        const redisKeys = await redisClient.keys("*");
+        for (const key of redisKeys) {
+          const gameData = await redisClient.get(key);
+          const game = JSON.parse(gameData);
+          if (game.isGameOver === false && (game.player_1 === (socket as any).user.address || game.player_2 === (socket as any).user.address)) {
+            socket.emit("rejoinGame", { status: 200, game_id: game.game_id, user: (socket as any).user.address, opponent: game.player_1 === (socket as any).user.address ? game.player_2 : game.player_1 });
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+      socket.emit("rejoinGame", { status: 404, message: "No active game found for this user." });
     });
 
     socket.on("joinGame", async function (data) {
