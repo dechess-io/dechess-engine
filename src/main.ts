@@ -82,6 +82,11 @@ cron.schedule("0 */2 * * *", syncGames);
     res.json("pong");
   });
 
+  app.get("/remove-all-key",async (req, res) => {
+    await redisClient.FLUSHALL();;
+    res.json({ message: "All keys removed successfully." });
+  })
+
   app.get("/check-redis", async (req, res) => {
     await redisClient.set("de-chess", "health");
     const result = await redisClient.get("de-chess");
