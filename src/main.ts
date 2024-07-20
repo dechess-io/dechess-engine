@@ -189,11 +189,14 @@ cron.schedule("0 */2 * * *", syncGames);
               player1: 0,
               player2: 0,
             },
+            timer1: timeStep * 60,
+            timer2: timeStep * 60,
             isGameOver: false,
             isGameDraw: false,
             winner: null,
             loser: null,
           };
+          console.log(board.timer1);
           // console.log("7s200:board", board);
           await redisClient.set(id, JSON.stringify(board));
           console.log(id);
@@ -222,7 +225,6 @@ cron.schedule("0 */2 * * *", syncGames);
         const cachedBoard = JSON.parse(cachedData);
         cachedBoard.isGameDraw = isGameDraw;
         cachedBoard.isGameOver = isGameOver;
-        console.log("Hello");
         await redisClient.set(game_id, JSON.stringify(cachedBoard));
       } else {
         console.error(`Game with Id ${game_id} not found in cache`);
@@ -301,7 +303,7 @@ cron.schedule("0 */2 * * *", syncGames);
     socket.on("move", async function (move) {
       const user = (socket as any).user;
 
-      const { from, to, turn, address, isPromotion, fen, game_id, promotion, timers, san, lastMove, startTime } = move; //fake fen'
+      const { from, to, turn, address, isPromotion, fen, game_id, promotion, timers, san, lastMove, startTime, timer1, timer2 } = move; //fake fen'
       socket.join(game_id);
 
       let board: any;
@@ -349,8 +351,10 @@ cron.schedule("0 */2 * * *", syncGames);
       board.fen = chess.fen();
       board.turn_player = chess.turn();
       board.startTime = startTime;
+      board.timer1 = timer1 ? timer1 : board.timer1;
+      board.timer2 = timer2 ? timer2 : board.timer2;
 
-      io.to(game_id).emit("newmove", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen(), timers, san, lastMove, startTime });
+      io.to(game_id).emit("newmove", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen(), timers, san, lastMove, startTime, timer1, timer2 });
 
       await redisClient.set(game_id, JSON.stringify(board));
       // console.log("7s200:move:7", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen() });
@@ -372,6 +376,7 @@ cron.schedule("0 */2 * * *", syncGames);
           const gameData = await redisClient.get(key);
           const game = JSON.parse(gameData);
           if (game.isGameOver === false && (game.player_1 === (socket as any).user.address || game.player_2 === (socket as any).user.address)) {
+            console.log(game);
             socket.emit("rejoinGame", { status: 200, game_id: game.game_id, user: (socket as any).user.address, opponent: game.player_1 === (socket as any).user.address ? game.player_2 : game.player_1 });
           }
         }
