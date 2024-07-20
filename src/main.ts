@@ -78,6 +78,11 @@ cron.schedule("0 */2 * * *", syncGames);
     res.json("pong");
   });
 
+  app.get("/remove-all-key", async (req, res) => {
+    await redisClient.FLUSHALL();
+    res.json({ message: "All keys removed successfully." });
+  });
+
   app.get("/check-redis", async (req, res) => {
     await redisClient.set("de-chess", "health");
     const result = await redisClient.get("de-chess");
@@ -187,6 +192,9 @@ cron.schedule("0 */2 * * *", syncGames);
           };
           // console.log("7s200:board", board);
           await redisClient.set(id, JSON.stringify(board));
+          console.log(id);
+          await redisClient.set("activeGame:" + user.address, id.trim());
+          await redisClient.set("activeGame:" + opponent.user, id.trim());
           socket.join(board.game_id);
           opponent.socket.join(board.game_id);
           socket.emit("createGame", { status: 200, board });
@@ -237,6 +245,8 @@ cron.schedule("0 */2 * * *", syncGames);
     });
 
     socket.on("resign", async function (data) {
+      console.log("resign");
+      console.log(data);
       const user = (socket as any).user;
       const { game_id, loser, winner } = data;
       socket.join(game_id);
@@ -287,7 +297,7 @@ cron.schedule("0 */2 * * *", syncGames);
     socket.on("move", async function (move) {
       const user = (socket as any).user;
 
-      const { from, to, turn, address, isPromotion, fen, game_id, promotion, timers, san } = move; //fake fen'
+      const { from, to, turn, address, isPromotion, fen, game_id, promotion, timers, san, lastMove, startTime } = move; //fake fen'
       socket.join(game_id);
 
       let board: any;
@@ -334,8 +344,9 @@ cron.schedule("0 */2 * * *", syncGames);
       board.move_number = chess.moveNumber();
       board.fen = chess.fen();
       board.turn_player = chess.turn();
+      board.startTime = startTime;
 
-      io.to(game_id).emit("newmove", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen(), timers, san });
+      io.to(game_id).emit("newmove", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen(), timers, san, lastMove, startTime });
 
       await redisClient.set(game_id, JSON.stringify(board));
       // console.log("7s200:move:7", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen() });
@@ -351,6 +362,9 @@ cron.schedule("0 */2 * * *", syncGames);
       try {
         const redisKeys = await redisClient.keys("*");
         for (const key of redisKeys) {
+          if (key.startsWith("activeGame:")) {
+            continue;
+          }
           const gameData = await redisClient.get(key);
           const game = JSON.parse(gameData);
           if (game.isGameOver === false && (game.player_1 === (socket as any).user.address || game.player_2 === (socket as any).user.address)) {
@@ -474,8 +488,14 @@ cron.schedule("0 */2 * * *", syncGames);
     //     .catch((err) => {});
     // });
 
-    socket.on("disconnect", function () {
-      console.log("7s200:socket:disconnect");
+    socket.on("disconnect", async function (data) {
+      try {
+        console.log("7s200:socket:disconnect");
+        const gameId = await redisClient.get("activeGame:" + (socket as any).user.address);
+        io.to(gameId).emit("opponentDisconnect");
+      } catch (err) {
+        console.error("7s200:socket:disconnect:err", err);
+      }
     });
   });
 })();
