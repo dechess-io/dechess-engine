@@ -195,6 +195,7 @@ cron.schedule("0 */2 * * *", syncGames);
             isGameDraw: false,
             winner: null,
             loser: null,
+            history: [new Chess().fen()],
           };
           console.log(board.timer1);
           // console.log("7s200:board", board);
@@ -353,8 +354,9 @@ cron.schedule("0 */2 * * *", syncGames);
       board.startTime = startTime;
       board.timer1 = timer1 ? timer1 : board.timer1;
       board.timer2 = timer2 ? timer2 : board.timer2;
+      board.history = [...board.history, fen];
 
-      io.to(game_id).emit("newmove", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen(), timers, san, lastMove, startTime, timer1, timer2 });
+      io.to(game_id).emit("newmove", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen(), timers, san, lastMove, startTime, timer1, timer2, history: board.history });
 
       await redisClient.set(game_id, JSON.stringify(board));
       // console.log("7s200:move:7", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen() });
