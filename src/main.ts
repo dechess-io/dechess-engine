@@ -177,10 +177,6 @@ cron.schedule("0 */2 * * *", syncGames);
             move_number: chess.moveNumber(),
             time: timeStep,
             timePerMove: additionTimePerMove,
-            timers: {
-              player1Timer: timeStep * 60,
-              player2Timer: timeStep * 60,
-            },
             fen: chess.fen(),
             isPaymentMatch: false,
             payAmount: 10_000_000_000_000,
@@ -189,15 +185,14 @@ cron.schedule("0 */2 * * *", syncGames);
               player1: 0,
               player2: 0,
             },
-            timer1: timeStep * 60,
-            timer2: timeStep * 60,
+            playerTimer1: timeStep * 60,
+            playerTimer2: timeStep * 60,
             isGameOver: false,
             isGameDraw: false,
             winner: null,
             loser: null,
             history: [new Chess().fen()],
           };
-          console.log(board.timer1);
           // console.log("7s200:board", board);
           await redisClient.set(id, JSON.stringify(board));
           console.log(id);
@@ -304,7 +299,7 @@ cron.schedule("0 */2 * * *", syncGames);
     socket.on("move", async function (move) {
       const user = (socket as any).user;
 
-      const { from, to, turn, address, isPromotion, fen, game_id, promotion, timers, san, lastMove, startTime, timer1, timer2 } = move; //fake fen'
+      const { from, to, turn, address, isPromotion, fen, game_id, promotion, timers, san, lastMove, startTime, playerTimer1, playerTimer2 } = move; //fake fen'
       socket.join(game_id);
 
       let board: any;
@@ -352,11 +347,11 @@ cron.schedule("0 */2 * * *", syncGames);
       board.fen = chess.fen();
       board.turn_player = chess.turn();
       board.startTime = startTime;
-      board.timer1 = timer1 ? timer1 : board.timer1;
-      board.timer2 = timer2 ? timer2 : board.timer2;
+      board.playerTimer1 = playerTimer1;
+      board.playerTimer2 = playerTimer2;
       board.history = [...board.history, fen];
 
-      io.to(game_id).emit("newmove", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen(), timers, san, lastMove, startTime, timer1, timer2, history: board.history });
+      io.to(game_id).emit("newmove", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen(), timers, san, lastMove, startTime, playerTimer1, playerTimer2, history: board.history });
 
       await redisClient.set(game_id, JSON.stringify(board));
       // console.log("7s200:move:7", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen() });
