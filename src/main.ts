@@ -16,6 +16,8 @@ import { DEFAULT_0X0_ADDRESS, TGame, gameController } from "./router/game";
 import { verifyToken } from "./services/jwt";
 import * as cron from "node-cron";
 
+const ABSENT_GAME_KEY = "absentGames";
+
 const syncGames = async () => {
   try {
     const redisKeys = await redisClient.keys("*");
@@ -51,6 +53,48 @@ const syncGames = async () => {
     console.error("Error syncing games:", err);
   }
 };
+
+async function addAbsentGame(game_id: string, user: string) {
+  const leaveTime = Date.now();
+  const absentGames = await redisClient.get(ABSENT_GAME_KEY);
+
+  let absentGamesList = absentGames ? JSON.parse(absentGames) : [];
+
+  const gameAlreadyAbsent = absentGamesList.find((game) => game.game_id === game_id);
+
+  if (gameAlreadyAbsent) {
+    if (!gameAlreadyAbsent.user.includes(user)) {
+      gameAlreadyAbsent.user.push(user);
+      gameAlreadyAbsent.leaveTimes.push(leaveTime);
+    }
+  } else {
+    const gameAbsent = { game_id, user: [user], leaveTimes: [leaveTime] };
+    absentGamesList.push(gameAbsent);
+  }
+  await redisClient.set(ABSENT_GAME_KEY, JSON.stringify(absentGamesList));
+}
+
+async function removeAbsentGame(game_id: string, user: string) {
+  const absentGames = await redisClient.get(ABSENT_GAME_KEY);
+  if (absentGames) {
+    let absentGamesList = JSON.parse(absentGames);
+    let gameAbsent = absentGamesList.find((game) => game.game_id === game_id);
+
+    if (gameAbsent) {
+      const userIndex = gameAbsent.user.indexOf(user);
+      if (userIndex !== -1) {
+        gameAbsent.user.splice(userIndex, 1);
+        gameAbsent.leaveTimes.splice(userIndex, 1);
+      }
+
+      if (gameAbsent.user.length === 0) {
+        absentGamesList = absentGamesList.filter((game) => game.game_id !== game_id);
+      }
+    }
+
+    await redisClient.set(ABSENT_GAME_KEY, JSON.stringify(absentGamesList));
+  }
+}
 
 // Schedule the task to run every 2 hours
 cron.schedule("0 */2 * * *", syncGames);
@@ -119,27 +163,46 @@ cron.schedule("0 */2 * * *", syncGames);
 
   let waitingQueue = []; // Queue to store users waiting for a match
 
+  setInterval(
+    async () => {
+      const currentTime = Date.now();
+      const absentGames = await redisClient.get(ABSENT_GAME_KEY);
+      if (absentGames) {
+        let absentGamesList = JSON.parse(absentGames);
+        for (let i = absentGamesList.length - 1; i >= 0; i--) {
+          const { game_id, user, leaveTimes } = absentGamesList[i];
+          for (let j = user.length - 1; j >= 0; j--) {
+            if (currentTime - leaveTimes[j] > 2 * 60 * 1000) {
+              // 2 minutes in milliseconds
+              const cachedData = await redisClient.get(game_id);
+              if (cachedData) {
+                const board = JSON.parse(cachedData);
+                if (board.player_1 === user[j]) {
+                  board.winner = board.player_2;
+                } else if (board.player_2 === user[j]) {
+                  board.winner = board.player_1;
+                }
+                board.isGameOver = true;
+                await redisClient.set(game_id, JSON.stringify(board));
+                io.to(game_id).emit("gameOver", { winner: board.winner });
+              }
+              absentGamesList.splice(i, 1); // Remove the game from the list
+              break;
+            }
+          }
+        }
+        await redisClient.set(ABSENT_GAME_KEY, JSON.stringify(absentGamesList));
+      }
+    },
+    2 * 60 * 1000,
+  );
+
   io.use(async (socket, next) => {
     if (socket.handshake.headers.authorization) {
       const token = socket.handshake.headers.authorization.toString();
       const verified = await verifyToken(token);
       (socket as any).user = verified;
       return next();
-      // jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, async (err, decodedToken) => {
-      //   if (err) {
-      //     // console.log("7s200:socket:auth:err", err, decodedToken);
-      //     // return;
-      //   }
-      //   // const { collection } = await dbCollection<any>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_USERS!);
-      //   // const userData = await collection.findOne({ address: decodedToken.address });
-      //   // // console.log("7s200:userData", userData);
-      //   // if (!userData) {
-      //   //   // console.log("7s200:socket:auth:err:userData", userData, decodedToken);
-      //   //   return;
-      //   // }
-      //   (socket as any).user = decodedToken.address;
-      //   return next();
-      // });
     } else {
       return;
     }
@@ -210,17 +273,20 @@ cron.schedule("0 */2 * * *", syncGames);
       }
     });
 
-    socket.on("endGame", async function (data) {
+    socket.on("gameOver", async function (data) {
       const user = (socket as any).user;
-      const { game_id, isGameDraw, isGameOver } = data;
+      const { game_id, winner, loser, isGameDraw, isGameOver } = data;
       socket.join(game_id);
 
-      const cachedData = await redisClient.get(game_id);
+      const cachedDate = await redisClient.get(game_id);
 
-      if (cachedData) {
-        const cachedBoard = JSON.parse(cachedData);
-        cachedBoard.isGameDraw = isGameDraw;
+      if (cachedDate) {
+        const cachedBoard = JSON.parse(cachedDate);
         cachedBoard.isGameOver = isGameOver;
+        cachedBoard.isGameDraw = isGameDraw;
+        cachedBoard.winner = winner;
+        cachedBoard.loser = loser;
+
         await redisClient.set(game_id, JSON.stringify(cachedBoard));
       } else {
         console.error(`Game with Id ${game_id} not found in cache`);
@@ -384,41 +450,17 @@ cron.schedule("0 */2 * * *", syncGames);
     });
 
     socket.on("joinGame", async function (data) {
-      // const { collection } = await dbCollection<TGame>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_GAMES!);
-      // const board = await collection.findOne({ game_id: data.game_id });
-
+      console.log("joinGame");
+      const user = (socket as any).user;
       const cachedBoard = await redisClient.get(data.game_id);
       const board = JSON.parse(cachedBoard);
+      const game_id = await redisClient.get("activeGame:" + (socket as any).user.address);
+      if (game_id) {
+        removeAbsentGame(game_id, user.address);
+      }
       socket.join(board.game_id);
-
-      // if (board.player_1.length === 0 && board.player_2.length === 0) {
-      //   const updateDoc = {
-      //     $set: {
-      //       player_1: (socket as any).user,
-      //     },
-      //   };
-      //   await collection.findOneAndUpdate({ game_id: data.game_id }, updateDoc);
-      //   socket.join(data.game_id);
-      // }
-      // if (board.player_1.length > 0 && (socket as any).user !== board.player_1) {
-      //   const updateDoc = {
-      //     $set: {
-      //       player_2: (socket as any).user,
-      //     },
-      //   };
-      //   await collection.findOneAndUpdate({ game_id: data.game_id }, updateDoc);
-      //   socket.join(data.game_id);
-      // }
-      // if (board.player_2.length > 0 && (socket as any).user !== board.player_2) {
-      //   const updateDoc = {
-      //     $set: {
-      //       player_1: (socket as any).user,
-      //     },
-      //   };
-      //   await collection.findOneAndUpdate({ game_id: data.game_id }, updateDoc);
-      //   socket.join(data.game_id);
-      // }
-      socket.join(data.game_id);
+      console.log("emit rejoin");
+      io.to(board.game_id).emit("joinGame");
     });
 
     socket.on("tournament", async function (data) {
@@ -498,6 +540,9 @@ cron.schedule("0 */2 * * *", syncGames);
       try {
         console.log("7s200:socket:disconnect");
         const gameId = await redisClient.get("activeGame:" + (socket as any).user.address);
+        if (gameId) {
+          addAbsentGame(gameId, (socket as any).user.address);
+        }
         io.to(gameId).emit("opponentDisconnect");
       } catch (err) {
         console.error("7s200:socket:disconnect:err", err);
