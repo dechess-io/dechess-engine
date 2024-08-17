@@ -5,7 +5,6 @@ import routes from "./router";
 import cors from "cors";
 const app = express();
 const port = process.env.PORT || 3001;
-
 import bodyParser from "body-parser";
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
@@ -15,8 +14,15 @@ import { Chess, Chess as ChessV2, Square } from "./engine/chess2";
 import { DEFAULT_0X0_ADDRESS, TGame, gameController } from "./router/game";
 import { verifyToken } from "./services/jwt";
 import * as cron from "node-cron";
+import TelegramBot from "node-telegram-bot-api";
 
 const ABSENT_GAME_KEY = "absentGames";
+
+// Replace with your bot token
+const token = "7327954703:AAEuHyukNUSMSr8yzapqupb5ZVEnEbo_puc";
+
+// Create a bot instance
+const bot = new TelegramBot(token, { polling: true });
 
 const syncGames = async () => {
   try {
@@ -255,6 +261,9 @@ cron.schedule("0 */2 * * *", syncGames);
             winner: null,
             loser: null,
             history: [new Chess().fen()],
+            startTime: Date.now(),
+            player1Moves: 0,
+            player2Moves: 0,
           };
           // console.log("7s200:board", board);
           await redisClient.set(id, JSON.stringify(board));
@@ -270,6 +279,20 @@ cron.schedule("0 */2 * * *", syncGames);
           waitingQueue.push({ user: user.address, socket, callback, timeStep, additionTimePerMove });
           socket.emit("createGame", { status: 202 });
         }
+      }
+    });
+
+    socket.on("chatId", async function (data) {
+      const { chatId, gameId } = data;
+      socket.join(gameId);
+
+      const cachedDate = await redisClient.get(gameId);
+
+      if (cachedDate) {
+        const cachedBoard = JSON.parse(cachedDate);
+        bot.sendMessage(chatId, `${cachedBoard.fen}`);
+      } else {
+        console.error(`Game with Id ${gameId} not found in cache`);
       }
     });
 
@@ -365,7 +388,7 @@ cron.schedule("0 */2 * * *", syncGames);
     socket.on("move", async function (move) {
       const user = (socket as any).user;
 
-      const { from, to, turn, address, isPromotion, fen, game_id, promotion, timers, san, lastMove, startTime, playerTimer1, playerTimer2 } = move; //fake fen'
+      const { from, to, turn, address, isPromotion, fen, game_id, promotion, timers, san, lastMove, startTime, playerTimer1, playerTimer2, player1Moves, player2Moves } = move; //fake fen'
       socket.join(game_id);
 
       let board: any;
@@ -416,8 +439,26 @@ cron.schedule("0 */2 * * *", syncGames);
       board.playerTimer1 = playerTimer1;
       board.playerTimer2 = playerTimer2;
       board.history = [...board.history, fen];
+      board.player1Moves = player1Moves;
+      board.player2Moves = player2Moves;
 
-      io.to(game_id).emit("newmove", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen(), timers, san, lastMove, startTime, playerTimer1, playerTimer2, history: board.history });
+      io.to(game_id).emit("newmove", {
+        game_id: game_id,
+        from,
+        to,
+        board: chess.board(),
+        turn: chess.turn(),
+        fen: chess.fen(),
+        timers,
+        san,
+        lastMove,
+        startTime,
+        playerTimer1,
+        playerTimer2,
+        history: board.history,
+        player1Moves,
+        player2Moves,
+      });
 
       await redisClient.set(game_id, JSON.stringify(board));
       // console.log("7s200:move:7", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen() });
