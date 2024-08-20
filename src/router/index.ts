@@ -3,6 +3,8 @@ import { gameController } from "./game";
 import { userController } from "./user";
 import { authenToken } from "../auth/auth";
 import { tournamentController } from "./tournament";
+import { landingpageController } from "./landing-page";
+import { ipMiddleware } from "../middlewares/ip.middleware";
 
 const routes = Router();
 
@@ -20,6 +22,10 @@ routes.post("/login-verify-account", userController.verify);
 routes.post("/generate_payload", userController.generatePayload);
 routes.post("/check_proof", userController.checkProof);
 routes.get("/get_account_info", userController.getAccountInfo);
+
+// lading-page
+routes.post("/landing-page/email-support", ipMiddleware, landingpageController.submit);
+routes.get("/landing-page/get", landingpageController.get);
 
 routes.post("/new-game-v2", authenToken, gameController.newGameV2);
 routes.get("/load-game-v2", gameController.loadGameV2);

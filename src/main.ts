@@ -22,7 +22,6 @@ const token = "7327954703:AAEuHyukNUSMSr8yzapqupb5ZVEnEbo_puc";
 
 // Create a bot instance
 const bot = new TelegramBot(token, { polling: true });
-
 const syncGames = async () => {
   try {
     const redisKeys = await redisClient.keys("*");
@@ -165,39 +164,36 @@ cron.schedule("0 */2 * * *", syncGames);
 
   let waitingQueue = []; // Queue to store users waiting for a match
 
-  setInterval(
-    async () => {
-      const currentTime = Date.now();
-      const absentGames = await redisClient.get(ABSENT_GAME_KEY);
-      if (absentGames) {
-        let absentGamesList = JSON.parse(absentGames);
-        for (let i = absentGamesList.length - 1; i >= 0; i--) {
-          const { game_id, user, leaveTimes } = absentGamesList[i];
-          for (let j = user.length - 1; j >= 0; j--) {
-            if (currentTime - leaveTimes[j] > 2 * 60 * 1000) {
-              // 2 minutes in milliseconds
-              const cachedData = await redisClient.get(game_id);
-              if (cachedData) {
-                const board = JSON.parse(cachedData);
-                if (board.player_1 === user[j]) {
-                  board.winner = board.player_2;
-                } else if (board.player_2 === user[j]) {
-                  board.winner = board.player_1;
-                }
-                board.isGameOver = true;
-                await redisClient.set(game_id, JSON.stringify(board));
-                io.to(game_id).emit("gameOver", { winner: board.winner });
+  setInterval(async () => {
+    const currentTime = Date.now();
+    const absentGames = await redisClient.get(ABSENT_GAME_KEY);
+    if (absentGames) {
+      let absentGamesList = JSON.parse(absentGames);
+      for (let i = absentGamesList.length - 1; i >= 0; i--) {
+        const { game_id, user, leaveTimes } = absentGamesList[i];
+        for (let j = user.length - 1; j >= 0; j--) {
+          if (currentTime - leaveTimes[j] > 2 * 60 * 1000) {
+            // 2 minutes in milliseconds
+            const cachedData = await redisClient.get(game_id);
+            if (cachedData) {
+              const board = JSON.parse(cachedData);
+              if (board.player_1 === user[j]) {
+                board.winner = board.player_2;
+              } else if (board.player_2 === user[j]) {
+                board.winner = board.player_1;
               }
-              absentGamesList.splice(i, 1); // Remove the game from the list
-              break;
+              board.isGameOver = true;
+              await redisClient.set(game_id, JSON.stringify(board));
+              io.to(game_id).emit("gameOver", { winner: board.winner });
             }
+            absentGamesList.splice(i, 1); // Remove the game from the list
+            break;
           }
         }
-        await redisClient.set(ABSENT_GAME_KEY, JSON.stringify(absentGamesList));
       }
-    },
-    2 * 60 * 1000,
-  );
+      await redisClient.set(ABSENT_GAME_KEY, JSON.stringify(absentGamesList));
+    }
+  }, 2 * 60 * 1000);
 
   io.use(async (socket, next) => {
     if (socket.handshake.headers.authorization) {
@@ -256,7 +252,7 @@ cron.schedule("0 */2 * * *", syncGames);
             isGameDraw: false,
             winner: null,
             loser: null,
-            history: [new Chess().fen()],
+            history: [new ChessV2().fen()],
             startTime: Date.now(),
             player1Moves: 0,
             player2Moves: 0,
