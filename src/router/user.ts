@@ -167,7 +167,7 @@ export const userController = {
       }
       return res.json({
         status: 200,
-        message: "CREATE_user_SUCCESS",
+        message: "CREATE_USER_SUCCESS",
       });
     } catch (error) {
       return res.json({

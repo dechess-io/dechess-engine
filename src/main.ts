@@ -61,7 +61,7 @@ cron.schedule("0 */2 * * *", syncGames);
   app.use(
     express.json({
       type: ["application/json", "text/plain"],
-    }),
+    })
   );
 
   let corsOptions = {
@@ -349,7 +349,6 @@ cron.schedule("0 */2 * * *", syncGames);
       io.to(game_id).emit("newmove", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen(), timers, san, lastMove, startTime });
 
       await redisClient.set(game_id, JSON.stringify(board));
-      // console.log("7s200:move:7", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen() });
     });
 
     socket.on("message", async function (data) {
@@ -436,57 +435,6 @@ cron.schedule("0 */2 * * *", syncGames);
         }
       }
     });
-
-    // socket.on("jointournamentgame", async function (data) {
-    //   socket.join(data.game_id);
-    // });
-    // socket.on("tournamentmove", async function (move) {
-    //   const { from, to, turn, address, isPromotion, fen, game_id } = move; //fake fen'
-    //   socket.join(game_id);
-
-    //   const { collection } = await dbCollection<any>(process.env.DB_DECHESS!, "tournament");
-    //   const board = await collection.findOne({ game_id: game_id });
-    //   console.log("7s200:board", board);
-    //   if (board.player1 === "" || board.player2 === "" || board.player2 === DEFAULT_0X0_ADDRESS) {
-    //     return;
-    //   }
-    //   if ((board as any).isGameDraw || (board as any).isGameOver) {
-    //     return;
-    //   }
-    //   const chess = new ChessV2(fen);
-    //   try {
-    //     console.log("7s200:move:promotion");
-    //     if (!isPromotion) {
-    //       chess.move({
-    //         from: from,
-    //         to: to,
-    //         // promotion: "q",
-    //       });
-    //     }
-    //   } catch (error) {
-    //     console.log("7s200:move:err");
-    //   }
-    //   const isGameOver = chess.isGameOver();
-    //   const isGameDraw = chess.isDraw();
-    //   const newBoard = {
-    //     $set: {
-    //       board: chess.board(),
-    //       turn_player: chess.turn(),
-    //       move_number: chess.moveNumber(),
-    //       fen: chess.fen(),
-    //       isGameDraw: isGameDraw,
-    //       isGameOver: isGameOver,
-    //     },
-    //   };
-    //   io.to(game_id).emit("tournamentnewmove", { game_id: game_id, from, to, board: chess.board(), turn: chess.turn(), fen: chess.fen() });
-    //   await collection
-    //     .findOneAndUpdate({ game_id: board.game_id }, newBoard)
-    //     .then((data) => {
-    //       if (data) {
-    //       }
-    //     })
-    //     .catch((err) => {});
-    // });
 
     socket.on("disconnect", async function (data) {
       try {
