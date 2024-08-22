@@ -18,7 +18,7 @@ import TelegramBot from "node-telegram-bot-api";
 const ABSENT_GAME_KEY = "absentGames";
 
 // Replace with your bot token
-const token = "7327954703:AAEuHyukNUSMSr8yzapqupb5ZVEnEbo_puc";
+const token = "7327954703:AAGxjpHMPNnnvUsBaKFJXkBp9xMkK8pL8dE";
 
 // Create a bot instance
 const bot = new TelegramBot(token, { polling: true });
@@ -110,7 +110,7 @@ cron.schedule("0 */2 * * *", syncGames);
   app.use(
     express.json({
       type: ["application/json", "text/plain"],
-    })
+    }),
   );
 
   let corsOptions = {
@@ -164,36 +164,39 @@ cron.schedule("0 */2 * * *", syncGames);
 
   let waitingQueue = []; // Queue to store users waiting for a match
 
-  setInterval(async () => {
-    const currentTime = Date.now();
-    const absentGames = await redisClient.get(ABSENT_GAME_KEY);
-    if (absentGames) {
-      let absentGamesList = JSON.parse(absentGames);
-      for (let i = absentGamesList.length - 1; i >= 0; i--) {
-        const { game_id, user, leaveTimes } = absentGamesList[i];
-        for (let j = user.length - 1; j >= 0; j--) {
-          if (currentTime - leaveTimes[j] > 2 * 60 * 1000) {
-            // 2 minutes in milliseconds
-            const cachedData = await redisClient.get(game_id);
-            if (cachedData) {
-              const board = JSON.parse(cachedData);
-              if (board.player_1 === user[j]) {
-                board.winner = board.player_2;
-              } else if (board.player_2 === user[j]) {
-                board.winner = board.player_1;
+  setInterval(
+    async () => {
+      const currentTime = Date.now();
+      const absentGames = await redisClient.get(ABSENT_GAME_KEY);
+      if (absentGames) {
+        let absentGamesList = JSON.parse(absentGames);
+        for (let i = absentGamesList.length - 1; i >= 0; i--) {
+          const { game_id, user, leaveTimes } = absentGamesList[i];
+          for (let j = user.length - 1; j >= 0; j--) {
+            if (currentTime - leaveTimes[j] > 2 * 60 * 1000) {
+              // 2 minutes in milliseconds
+              const cachedData = await redisClient.get(game_id);
+              if (cachedData) {
+                const board = JSON.parse(cachedData);
+                if (board.player_1 === user[j]) {
+                  board.winner = board.player_2;
+                } else if (board.player_2 === user[j]) {
+                  board.winner = board.player_1;
+                }
+                board.isGameOver = true;
+                await redisClient.set(game_id, JSON.stringify(board));
+                io.to(game_id).emit("gameOver", { winner: board.winner });
               }
-              board.isGameOver = true;
-              await redisClient.set(game_id, JSON.stringify(board));
-              io.to(game_id).emit("gameOver", { winner: board.winner });
+              absentGamesList.splice(i, 1); // Remove the game from the list
+              break;
             }
-            absentGamesList.splice(i, 1); // Remove the game from the list
-            break;
           }
         }
+        await redisClient.set(ABSENT_GAME_KEY, JSON.stringify(absentGamesList));
       }
-      await redisClient.set(ABSENT_GAME_KEY, JSON.stringify(absentGamesList));
-    }
-  }, 2 * 60 * 1000);
+    },
+    2 * 60 * 1000,
+  );
 
   io.use(async (socket, next) => {
     if (socket.handshake.headers.authorization) {
@@ -380,7 +383,7 @@ cron.schedule("0 */2 * * *", syncGames);
     socket.on("move", async function (move) {
       const user = (socket as any).user;
 
-      const { from, to, turn, address, isPromotion, fen, game_id, promotion, timers, san, lastMove, startTime, playerTimer1, playerTimer2, player1Moves, player2Moves } = move; //fake fen'
+      const { from, to, turn, address, isPromotion, fen, game_id, promotion, timers, san, lastMove, startTime, playerTimer1, playerTimer2, player1Moves, player2Moves, isCheck, isCapture } = move; //fake fen'
       socket.join(game_id);
 
       let board: any;
@@ -450,6 +453,9 @@ cron.schedule("0 */2 * * *", syncGames);
         history: board.history,
         player1Moves,
         player2Moves,
+        isCapture,
+        isCheck,
+        isPromotion,
       });
 
       await redisClient.set(game_id, JSON.stringify(board));
