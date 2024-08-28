@@ -51,12 +51,13 @@ export const userController = {
 
       const publicKey = await verifyPersonalMessageSignature(new TextEncoder().encode(message), signature);
       if (address !== publicKey.toSuiAddress()) {
-        res.json({ status: 401, message: "Verify message failed!" });
+        return res.json({ status: 401, message: "Verify message failed!" });
       }
+
       const token = await jwt.sign({ address: publicKey.toSuiAddress() }, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "24h",
       });
-      res.json({ status: 200, token });
+      return res.json({ status: 200, token });
     } catch (error) {
       res.json({ status: 500, message: "Verify failed!" });
     }
@@ -71,11 +72,19 @@ export const userController = {
     res.json(null);
   },
   getUser: async (req, res) => {
-    if (req.userData) {
-      res.json({ status: 200, message: "GET_USER_DATA_SUCCESS", data: { address: req.userData.address } });
-      return;
+    console.log("-> req", req.userData);
+    try {
+      const { collection } = await dbCollection<any>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_USERS!);
+      const userInfo = await collection.findOne({ address: req.userData.address });
+      if (!userInfo) {
+        return res.json({ status: 503, message: "GET_USER_DATA_FAILD" });
+      }
+
+      return res.json({ status: 200, message: "GET_USER_DATA_SUCCESS", data: { userInfo } });
+    } catch (error) {
+      console.log("7s200:error", error);
+      return res.json({ status: 400, message: "GET_USER_DATA_FAILD" });
     }
-    res.json({ status: 404, message: "GET_USER_DATA_FAILD" });
   },
   generatePayload: async (req, res) => {
     const service = new TonProofService();
@@ -96,6 +105,15 @@ export const userController = {
       const payloadToken = req.body.proof.payload;
       if (!(await verifyToken(payloadToken))) {
         return res.json({ status: 404, message: "INVALID_TOKEN" });
+      }
+      const { collection } = await dbCollection<any>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_USERS!);
+      const userInfo = await collection.findOne({ address: req.body.address });
+      if (!userInfo) {
+        const newUser = await collection.insertOne({ address: req.body.address, elo: 0, isEarly: false, accessCode: null });
+        console.log("newuser", newUser);
+        if (!newUser) {
+          return res.json({ status: 500, message: "CREATE_USER_FAILED" });
+        }
       }
 
       const token = await createAuthToken({ address: req.body.address, network: req.body.network as any });
@@ -176,4 +194,46 @@ export const userController = {
       });
     }
   },
+  submitEarlyAccess: async (req, res) => {
+    const { code } = req.body;
+    const isValidCode = EARLY_ACCESS_CODE.find((e) => e.toLocaleLowerCase() === code.toLocaleLowerCase());
+    if (!isValidCode) {
+      return res.json({
+        status: 501,
+        message: "EARLY_ACCESS_CODE_UNVALID!",
+      });
+    }
+
+    const { collection } = await dbCollection<any>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_USERS!);
+    const userInfo = await collection.findOne({ address: req.userData.address });
+    if (!userInfo) {
+      return res.json({
+        status: 501,
+        message: "USER_NOT_EXITEDS",
+      });
+    }
+    if (userInfo.isEarly) {
+      return res.json({
+        status: 501,
+        message: "USER_ACCESSED_BEFORE",
+      });
+    }
+    const docs = {
+      $set: {
+        isEarly: true,
+        accessCode: code.toLocaleLowerCase(),
+      },
+    };
+
+    const updated = await collection.findOneAndUpdate({ address: userInfo.address }, docs);
+    if (!updated) {
+      return res.json({
+        status: 501,
+        message: "USER_SUBMIT_ACCESS_CODE_FAILED!",
+      });
+    }
+    res.json({ success: true, status: 200, access_code: code });
+  },
 };
+
+const EARLY_ACCESS_CODE = ["Dawning"];

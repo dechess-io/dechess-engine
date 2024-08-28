@@ -14,6 +14,7 @@ routes.post("/create-user", userController.createUser);
 routes.get("/get-user", authenToken, userController.getUser);
 routes.post("/elo", userController.updateElo);
 routes.post("/new-user-with-elo", userController.newUserWithElo);
+routes.post("/early-access", authenToken, userController.submitEarlyAccess);
 
 routes.get("/login-message", userController.message);
 routes.post("/login-verify-account", userController.verify);
