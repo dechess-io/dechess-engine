@@ -17,6 +17,36 @@ import TelegramBot from "node-telegram-bot-api";
 import { bot } from "./services/bot";
 const ABSENT_GAME_KEY = "absentGames";
 
+const RATE_LIMIT_WINDOW_MS = 60000;
+const MAX_REQUESTS_PER_WINDOW = 20;
+
+const requestCounts = new Map<string, { count: number; lastRequestTime: number }>();
+
+function rateLimit(socket: any, next: (err? : any) => void){
+  const userAddress = socket.user.address;
+  const currentTime = Date.now();
+  if(!requestCounts.has(userAddress)){
+    requestCounts.set(userAddress, {count: 1, lastRequestTime: currentTime});
+    return next();
+  }
+
+  const userData = requestCounts.get(userAddress);
+
+  if(currentTime - userData.lastRequestTime > RATE_LIMIT_WINDOW_MS){
+    userData.count = 1;
+    userData.lastRequestTime = currentTime;
+    return next();
+  }
+
+
+  if(userData.count >= MAX_REQUESTS_PER_WINDOW){
+    return next(new Error("Rate limit exceeded"));
+  }
+
+  userData.count++;
+  next();
+}
+
 const syncGames = async () => {
   try {
     const redisKeys = await redisClient.keys("*");
@@ -156,6 +186,8 @@ cron.schedule("0 */2 * * *", syncGames);
       origin: ["https://localhost:5173", "http://miniapp.dechess.io", "https://www.miniapp.dechess.io", "https://miniapp.dechess.io", "http://localhost:5173"],
     },
   }).listen(http);
+
+  io.use(rateLimit);
 
   let waitingQueue = []; // Queue to store users waiting for a match
 
