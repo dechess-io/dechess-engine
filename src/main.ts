@@ -23,12 +23,17 @@ const MAX_REQUESTS_PER_WINDOW = 20;
 const requestCounts = new Map<string, { count: number; lastRequestTime: number }>();
 
 function rateLimit(socket: any, next: (err? : any) => void){
-  const userAddress = socket.user.address;
+  const userAddress = socket.user?.address;
+  if(!userAddress){
+    return next(new Error("User not found"));
+  }
   const currentTime = Date.now();
   if(!requestCounts.has(userAddress)){
     requestCounts.set(userAddress, {count: 1, lastRequestTime: currentTime});
     return next();
   }
+
+  console.log("hi")
 
   const userData = requestCounts.get(userAddress);
 
@@ -186,8 +191,6 @@ cron.schedule("0 */2 * * *", syncGames);
       origin: ["https://localhost:5173", "http://miniapp.dechess.io", "https://www.miniapp.dechess.io", "https://miniapp.dechess.io", "http://localhost:5173"],
     },
   }).listen(http);
-
-  io.use(rateLimit);
 
   let waitingQueue = []; // Queue to store users waiting for a match
 
