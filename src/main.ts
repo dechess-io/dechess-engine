@@ -53,81 +53,81 @@ function rateLimit(socket: any, next: (err? : any) => void){
 }
 
 const syncGames = async () => {
-  try {
-    const redisKeys = await redisClient.keys("*");
-    const gamesToSync: any[] = [];
+  // try {
+  //   const redisKeys = await redisClient.keys("*");
+  //   const gamesToSync: any[] = [];
 
-    for (const key of redisKeys) {
-      const keyType = await redisClient.type(key);
+  //   for (const key of redisKeys) {
+  //     const keyType = await redisClient.type(key);
 
-      if (keyType !== "string") {
-        console.log(`Skipping key ${key} of type ${keyType}`);
-        continue;
-      }
-      const gameData = await redisClient.get(key);
-      const game = JSON.parse(gameData);
+  //     if (keyType !== "string") {
+  //       console.log(`Skipping key ${key} of type ${keyType}`);
+  //       continue;
+  //     }
+  //     const gameData = await redisClient.get(key);
+  //     const game = JSON.parse(gameData);
 
-      if (game.isGameOver) {
-        gamesToSync.push(game);
-      }
-    }
+  //     if (game.isGameOver) {
+  //       gamesToSync.push(game);
+  //     }
+  //   }
 
-    if (gamesToSync.length > 0) {
-      const collection = client.db(process.env.DB_DECHESS!).collection(process.env.DB_DECHESS_COLLECTION_GAMES!);
-      const bulkOperations = gamesToSync.map((game) => ({
-        updateOne: {
-          filter: { game_id: game.game_id },
-          update: { $set: game },
-          upsert: true,
-        },
-      }));
-      await collection.bulkWrite(bulkOperations);
-    }
-  } catch (err) {
-    console.error("Error syncing games:", err);
-  }
+  //   if (gamesToSync.length > 0) {
+  //     const collection = client.db(process.env.DB_DECHESS!).collection(process.env.DB_DECHESS_COLLECTION_GAMES!);
+  //     const bulkOperations = gamesToSync.map((game) => ({
+  //       updateOne: {
+  //         filter: { game_id: game.game_id },
+  //         update: { $set: game },
+  //         upsert: true,
+  //       },
+  //     }));
+  //     await collection.bulkWrite(bulkOperations);
+  //   }
+  // } catch (err) {
+  //   console.error("Error syncing games:", err);
+  // }
 };
 
 async function addAbsentGame(game_id: string, user: string) {
-  const leaveTime = Date.now();
-  const absentGames = await redisClient.get(ABSENT_GAME_KEY);
+  // const leaveTime = Date.now();
+  // const absentGames = await redisClient.get(ABSENT_GAME_KEY);
 
-  let absentGamesList = absentGames ? JSON.parse(absentGames) : [];
+  // let absentGamesList = absentGames ? JSON.parse(absentGames) : [];
 
-  const gameAlreadyAbsent = absentGamesList.find((game) => game.game_id === game_id);
+  // const gameAlreadyAbsent = absentGamesList.find((game) => game.game_id === game_id);
 
-  if (gameAlreadyAbsent) {
-    if (!gameAlreadyAbsent.user.includes(user)) {
-      gameAlreadyAbsent.user.push(user);
-      gameAlreadyAbsent.leaveTimes.push(leaveTime);
-    }
-  } else {
-    const gameAbsent = { game_id, user: [user], leaveTimes: [leaveTime] };
-    absentGamesList.push(gameAbsent);
-  }
-  await redisClient.set(ABSENT_GAME_KEY, JSON.stringify(absentGamesList));
+  // if (gameAlreadyAbsent) {
+  //   if (!gameAlreadyAbsent.user.includes(user)) {
+  //     gameAlreadyAbsent.user.push(user);
+  //     gameAlreadyAbsent.leaveTimes.push(leaveTime);
+  //   }
+  // } else {
+  //   const gameAbsent = { game_id, user: [user], leaveTimes: [leaveTime] };
+  //   absentGamesList.push(gameAbsent);
+  // }
+  // await redisClient.set(ABSENT_GAME_KEY, JSON.stringify(absentGamesList));
 }
 
 async function removeAbsentGame(game_id: string, user: string) {
-  const absentGames = await redisClient.get(ABSENT_GAME_KEY);
-  if (absentGames) {
-    let absentGamesList = JSON.parse(absentGames);
-    let gameAbsent = absentGamesList.find((game) => game.game_id === game_id);
+  // const absentGames = await redisClient.get(ABSENT_GAME_KEY);
+  // if (absentGames) {
+  //   let absentGamesList = JSON.parse(absentGames);
+  //   let gameAbsent = absentGamesList.find((game) => game.game_id === game_id);
 
-    if (gameAbsent) {
-      const userIndex = gameAbsent.user.indexOf(user);
-      if (userIndex !== -1) {
-        gameAbsent.user.splice(userIndex, 1);
-        gameAbsent.leaveTimes.splice(userIndex, 1);
-      }
+  //   if (gameAbsent) {
+  //     const userIndex = gameAbsent.user.indexOf(user);
+  //     if (userIndex !== -1) {
+  //       gameAbsent.user.splice(userIndex, 1);
+  //       gameAbsent.leaveTimes.splice(userIndex, 1);
+  //     }
 
-      if (gameAbsent.user.length === 0) {
-        absentGamesList = absentGamesList.filter((game) => game.game_id !== game_id);
-      }
-    }
+  //     if (gameAbsent.user.length === 0) {
+  //       absentGamesList = absentGamesList.filter((game) => game.game_id !== game_id);
+  //     }
+  //   }
 
-    await redisClient.set(ABSENT_GAME_KEY, JSON.stringify(absentGamesList));
-  }
+  //   await redisClient.set(ABSENT_GAME_KEY, JSON.stringify(absentGamesList));
+  // }
 }
 
 // Schedule the task to run every 2 hours
@@ -238,6 +238,11 @@ cron.schedule("0 */2 * * *", syncGames);
       return;
     }
   }).on("connection", (socket) => {
+    if (!(socket as any).user?.address) {
+      console.error("Connection attempt with null or undefined address");
+      socket.disconnect(true); // Disconnect the socket
+      return; // Exit the connection handler
+    }
     console.log("New socket connection", (socket as any).user.address);
 
     socket.on("createGame", async function ({ timeStep, additionTimePerMove }, callback) {
