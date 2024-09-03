@@ -322,6 +322,7 @@ cron.schedule("0 */2 * * *", syncGames);
       const cachedDate = await redisClient.get(gameId);
 
       if (cachedDate) {
+        console.log("send message to chat_id ", chatId);
         const cachedBoard = JSON.parse(cachedDate);
         bot.sendMessage(chatId, `${cachedBoard.fen}`);
       } else {
