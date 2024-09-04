@@ -6,6 +6,7 @@ import { createAuthToken, createPayloadToken, decodeAuthToken, verifyToken } fro
 import { TonApiService } from "../services/tonAPI";
 import { unauthorized } from "../services/http-utils";
 import { INIT_BEGINER_ELO } from "../utils/elo";
+import { sign } from "tweetnacl";
 export function randomIntFromInterval(min, max) {
   return Math.floor(Math.random() * (max - min + 1) + min);
 }
@@ -61,6 +62,24 @@ export const userController = {
     } catch (error) {
       res.json({ status: 500, message: "Verify failed!" });
     }
+  },
+  telegramLogin: async (req, res) => {
+    const { user } = req.body;
+
+    if (!user || !user.id) {
+      return res.status(401).send({ message: "Invalid user" });
+    }
+
+    const { collection } = await dbCollection<any>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_USERS!);
+
+    let existUser = await collection.findOne({ address: user.id });
+
+    if (!existUser) {
+      existUser = await collection.insertOne({ address: user.id, elo: 0, isEarly: false, accessCode: null, username: user.username });
+    }
+
+    const token = jwt.sign({ address: user.id }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1h" });
+    res.json({ status: 200, message: "LOGIN_SUCCESS", data: token });
   },
   getAllUser: async (req, res) => {
     const { collection } = await dbCollection<any>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_USERS!);

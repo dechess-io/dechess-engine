@@ -22,29 +22,28 @@ const MAX_REQUESTS_PER_WINDOW = 20;
 
 const requestCounts = new Map<string, { count: number; lastRequestTime: number }>();
 
-function rateLimit(socket: any, next: (err? : any) => void){
+function rateLimit(socket: any, next: (err?: any) => void) {
   const userAddress = socket.user?.address;
-  if(!userAddress){
+  if (!userAddress) {
     return next(new Error("User not found"));
   }
   const currentTime = Date.now();
-  if(!requestCounts.has(userAddress)){
-    requestCounts.set(userAddress, {count: 1, lastRequestTime: currentTime});
+  if (!requestCounts.has(userAddress)) {
+    requestCounts.set(userAddress, { count: 1, lastRequestTime: currentTime });
     return next();
   }
 
-  console.log("hi")
+  console.log("hi");
 
   const userData = requestCounts.get(userAddress);
 
-  if(currentTime - userData.lastRequestTime > RATE_LIMIT_WINDOW_MS){
+  if (currentTime - userData.lastRequestTime > RATE_LIMIT_WINDOW_MS) {
     userData.count = 1;
     userData.lastRequestTime = currentTime;
     return next();
   }
 
-
-  if(userData.count >= MAX_REQUESTS_PER_WINDOW){
+  if (userData.count >= MAX_REQUESTS_PER_WINDOW) {
     return next(new Error("Rate limit exceeded"));
   }
 
@@ -56,22 +55,18 @@ const syncGames = async () => {
   // try {
   //   const redisKeys = await redisClient.keys("*");
   //   const gamesToSync: any[] = [];
-
   //   for (const key of redisKeys) {
   //     const keyType = await redisClient.type(key);
-
   //     if (keyType !== "string") {
   //       console.log(`Skipping key ${key} of type ${keyType}`);
   //       continue;
   //     }
   //     const gameData = await redisClient.get(key);
   //     const game = JSON.parse(gameData);
-
   //     if (game.isGameOver) {
   //       gamesToSync.push(game);
   //     }
   //   }
-
   //   if (gamesToSync.length > 0) {
   //     const collection = client.db(process.env.DB_DECHESS!).collection(process.env.DB_DECHESS_COLLECTION_GAMES!);
   //     const bulkOperations = gamesToSync.map((game) => ({
@@ -91,11 +86,8 @@ const syncGames = async () => {
 async function addAbsentGame(game_id: string, user: string) {
   // const leaveTime = Date.now();
   // const absentGames = await redisClient.get(ABSENT_GAME_KEY);
-
   // let absentGamesList = absentGames ? JSON.parse(absentGames) : [];
-
   // const gameAlreadyAbsent = absentGamesList.find((game) => game.game_id === game_id);
-
   // if (gameAlreadyAbsent) {
   //   if (!gameAlreadyAbsent.user.includes(user)) {
   //     gameAlreadyAbsent.user.push(user);
@@ -113,19 +105,16 @@ async function removeAbsentGame(game_id: string, user: string) {
   // if (absentGames) {
   //   let absentGamesList = JSON.parse(absentGames);
   //   let gameAbsent = absentGamesList.find((game) => game.game_id === game_id);
-
   //   if (gameAbsent) {
   //     const userIndex = gameAbsent.user.indexOf(user);
   //     if (userIndex !== -1) {
   //       gameAbsent.user.splice(userIndex, 1);
   //       gameAbsent.leaveTimes.splice(userIndex, 1);
   //     }
-
   //     if (gameAbsent.user.length === 0) {
   //       absentGamesList = absentGamesList.filter((game) => game.game_id !== game_id);
   //     }
   //   }
-
   //   await redisClient.set(ABSENT_GAME_KEY, JSON.stringify(absentGamesList));
   // }
 }
@@ -231,6 +220,7 @@ cron.schedule("0 */2 * * *", syncGames);
   io.use(async (socket, next) => {
     if (socket.handshake.headers.authorization) {
       const token = socket.handshake.headers.authorization.toString();
+      console.log(token);
       const verified = await verifyToken(token);
       (socket as any).user = verified;
       return next();
