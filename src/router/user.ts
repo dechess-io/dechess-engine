@@ -2,7 +2,7 @@ import { dbCollection } from "../database/collection";
 import jwt from "jsonwebtoken";
 import { verifyPersonalMessageSignature } from "@mysten/sui/verify";
 import { CheckProofRequest, TonProofService } from "../services/ton";
-import { createAuthToken, createPayloadToken, decodeAuthToken, verifyToken } from "../services/jwt";
+import { createAuthToken, createPayloadToken, decodeAuthToken, verifyInitData, verifyToken } from "../services/jwt";
 import { TonApiService } from "../services/tonAPI";
 import { unauthorized } from "../services/http-utils";
 import { INIT_BEGINER_ELO } from "../utils/elo";
@@ -64,11 +64,17 @@ export const userController = {
     }
   },
   telegramLogin: async (req, res) => {
-    const { user } = req.body;
+    const { data } = req.body;
 
-    if (!user || !user.id) {
-      return res.status(401).send({ message: "Invalid user" });
+    const isValidated = verifyInitData(data);
+
+    console.log("7s200:isValidated", isValidated);
+
+    if(!isValidated) {
+      return res.json({ status: 401, message: "INVALID_INIT_DATA" });
     }
+
+    const user = data.user;
 
     const { collection } = await dbCollection<any>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_USERS!);
 
