@@ -12,6 +12,7 @@
     "@hapi/joi": "^17.1.1",
     "@mysten/sui": "^1.0.5",
     "@redis/client": "^1.5.16",
+    "@telegram-apps/init-data-node": "^1.0.4",
     "@ton/core": "^0.56.3",
     "@ton/crypto": "^3.2.0",
     "@ton/ton": "^13.11.1",

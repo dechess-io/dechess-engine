@@ -7,6 +7,8 @@ import { TonApiService } from "../services/tonAPI";
 import { unauthorized } from "../services/http-utils";
 import { INIT_BEGINER_ELO } from "../utils/elo";
 import { sign } from "tweetnacl";
+import { validate } from '@telegram-apps/init-data-node';
+
 export function randomIntFromInterval(min, max) {
   return Math.floor(Math.random() * (max - min + 1) + min);
 }
@@ -66,12 +68,11 @@ export const userController = {
   telegramLogin: async (req, res) => {
     const { data } = req.body;
     console.log("7s200:data", data);
-    const isValidated = verifyInitData(JSON.stringify(data));
-
-    console.log("7s200:isValidated", isValidated);
-
-    if(!isValidated) {
-      return res.json({ status: 401, message: "INVALID_INIT_DATA" });
+    try{
+      validate(data, "7327954703:AAFWceo5wQtQ2Qbbf7iQJhua9o2cReQ7_to")
+    }catch(e){
+      console.log("7s200:error", e);
+      res.json({ status: 500, message: "INVALID_DATA" });
     }
 
     const user = data.user;
