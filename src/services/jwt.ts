@@ -78,6 +78,10 @@ export const verifyInitData = (telegramInitData: string): boolean => {
   const secret = crypto.createHmac('sha256', 'WebAppData').update("7327954703:AAFWceo5wQtQ2Qbbf7iQJhua9o2cReQ7_to");
   const calculatedHash = crypto.createHmac('sha256', secret.digest()).update(dataCheckString).digest('hex');
 
+  console.log(dataCheckString);
+  console.log('hash', hash);
+  console.log('calculatedHash', calculatedHash);
+
   return calculatedHash === hash;
 }
 

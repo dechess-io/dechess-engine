@@ -66,7 +66,7 @@ export const userController = {
   telegramLogin: async (req, res) => {
     const { data } = req.body;
     console.log("7s200:data", data);
-    const isValidated = verifyInitData(data);
+    const isValidated = verifyInitData(JSON.stringify(data));
 
     console.log("7s200:isValidated", isValidated);
 
