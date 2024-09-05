@@ -66,7 +66,7 @@ export const userController = {
     }
   },
   telegramLogin: async (req, res) => {
-    const { data } = req.body;
+    const { data, user } = req.body;
     console.log("7s200:data", data);
     try{
       validate(data, "7327954703:AAFWceo5wQtQ2Qbbf7iQJhua9o2cReQ7_to")
@@ -75,7 +75,6 @@ export const userController = {
       res.json({ status: 500, message: "INVALID_DATA" });
     }
 
-    const user = data.user;
 
     const { collection } = await dbCollection<any>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_USERS!);
 
