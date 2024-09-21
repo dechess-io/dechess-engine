@@ -258,8 +258,8 @@ cron.schedule("0 */2 * * *", syncGames);
           const chess = new ChessV2();
           const board = {
             game_id: id,
-            player_1: opponent.user.toString,
-            player_2: user.address.toString,
+            player_1: JSON.stringify(opponent.user),
+            player_2: JSON.stringify(user.address),
             board: chess.board(),
             score: 0,
             turn_player: chess.turn(),
