@@ -84,7 +84,7 @@ export const userController = {
       existUser = await collection.insertOne({ address: user.id.toString, elo: 0, isEarly: false, accessCode: null, username: user.username });
     }
 
-    const token = jwt.sign({ address: user.id }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1h" });
+    const token = jwt.sign({ address: JSON.stringify(user.id) }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "75h" });
     res.json({ status: 200, message: "LOGIN_SUCCESS", data: token });
   },
   getAllUser: async (req, res) => {
