@@ -26,6 +26,10 @@ routes.post("/generate_payload", userController.generatePayload);
 routes.post("/check_proof", userController.checkProof);
 routes.get("/get_account_info", userController.getAccountInfo);
 
+// sol
+routes.post("/generate-payload-solana", userController.gentneratePayloadSolana);
+routes.post("/veirfy-signature-solana", userController.verifySignatureSolana);
+
 // lading-page
 routes.post("/landing-page/email-support", ipMiddleware, landingpageController.submit);
 routes.get("/landing-page/get", landingpageController.get);

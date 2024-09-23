@@ -1,6 +1,6 @@
 import { CHAIN } from "@tonconnect/ui-react";
 import { decodeJwt, JWTPayload, jwtVerify, SignJWT } from "jose";
-import crypto from 'crypto';
+import crypto from "crypto";
 /**
  * Secret key for the token.
  */
@@ -12,6 +12,7 @@ const JWT_SECRET_KEY = process.env.ACCESS_TOKEN_SECRET;
 export type AuthToken = {
   address: string;
   network: CHAIN;
+  blockchain: string;
 };
 
 export type PayloadToken = {
@@ -65,23 +66,22 @@ export const decodePayloadToken = buildDecodeToken<PayloadToken>();
 export const verifyInitData = (telegramInitData: string): boolean => {
   const urlParams = new URLSearchParams(telegramInitData);
 
-  const hash = urlParams.get('hash');
-  urlParams.delete('hash');
+  const hash = urlParams.get("hash");
+  urlParams.delete("hash");
   urlParams.sort();
 
-  let dataCheckString = '';
+  let dataCheckString = "";
   for (const [key, value] of urlParams.entries()) {
-      dataCheckString += `${key}=${value}\n`;
+    dataCheckString += `${key}=${value}\n`;
   }
   dataCheckString = dataCheckString.slice(0, -1);
 
-  const secret = crypto.createHmac('sha256', 'WebAppData').update("7327954703:AAFWceo5wQtQ2Qbbf7iQJhua9o2cReQ7_to");
-  const calculatedHash = crypto.createHmac('sha256', secret.digest()).update(dataCheckString).digest('hex');
+  const secret = crypto.createHmac("sha256", "WebAppData").update("7327954703:AAFWceo5wQtQ2Qbbf7iQJhua9o2cReQ7_to");
+  const calculatedHash = crypto.createHmac("sha256", secret.digest()).update(dataCheckString).digest("hex");
 
   console.log(dataCheckString);
-  console.log('hash', hash);
-  console.log('calculatedHash', calculatedHash);
+  console.log("hash", hash);
+  console.log("calculatedHash", calculatedHash);
 
   return calculatedHash === hash;
-}
-
+};
