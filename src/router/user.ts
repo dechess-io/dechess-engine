@@ -78,13 +78,13 @@ export const userController = {
 
     const { collection } = await dbCollection<any>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_USERS!);
 
-    let existUser = await collection.findOne({ address: user.id });
+    let existUser = await collection.findOne({ address: user.id.toString });
 
     if (!existUser) {
-      existUser = await collection.insertOne({ address: user.id, elo: 0, isEarly: false, accessCode: null, username: user.username });
+      existUser = await collection.insertOne({ address: user.id.toString, elo: 0, isEarly: false, accessCode: null, username: user.username });
     }
 
-    const token = jwt.sign({ address: user.id }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1h" });
+    const token = jwt.sign({ address: JSON.stringify(user.id) }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "75h" });
     res.json({ status: 200, message: "LOGIN_SUCCESS", data: token });
   },
   getAllUser: async (req, res) => {

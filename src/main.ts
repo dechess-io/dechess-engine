@@ -250,6 +250,9 @@ cron.schedule("0 */2 * * *", syncGames);
       } else {
         let opponentIndex = waitingQueue.findIndex((item) => item.timeStep === timeStep && item.additionTimePerMove === additionTimePerMove);
 
+        const stringifyIfNotString = (value) => (typeof value === 'string' ? value : JSON.stringify(value));
+
+
         if (opponentIndex !== -1) {
           console.log("success");
           const time = Date.now();
@@ -258,8 +261,8 @@ cron.schedule("0 */2 * * *", syncGames);
           const chess = new ChessV2();
           const board = {
             game_id: id,
-            player_1: opponent.user,
-            player_2: user.address,
+            player_1: stringifyIfNotString(opponent.user),
+            player_2: stringifyIfNotString(user.address),
             board: chess.board(),
             score: 0,
             turn_player: chess.turn(),
