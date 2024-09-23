@@ -259,6 +259,27 @@ export const userController = {
     }
     res.json({ success: true, status: 200, access_code: code });
   },
+  getReferralLink: async (req, res) => {
+    const userId = req.userData.address;
+
+    // Function to generate a random 6-character alphanumeric code
+    function generateReferralCode() {
+      const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+      let result = "";
+      for (let i = 0; i < 6; i++) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length));
+      }
+      return result;
+    }
+
+    const referralCode = generateReferralCode();
+
+    // Save referral code to the user's database entry
+    const { collection } = await dbCollection(process.env.DB_DECHESS, process.env.DB_DECHESS_COLLECTION_USERS);
+    await collection.updateOne({ address: userId }, { $set: { referralCode } });
+
+    res.json({ status: 200, code: referralCode });
+  },
 };
 
 const EARLY_ACCESS_CODE = ["Dawning"];
