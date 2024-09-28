@@ -2,6 +2,7 @@ import * as anchor from "@project-serum/anchor";
 import { Connection, PublicKey, Keypair, SystemProgram } from "@solana/web3.js";
 import { readFileSync } from "fs";
 import path from "path";
+import { client } from "../database";
 
 const connection = new Connection("https://api.devnet.solana.com", "confirmed");
 
@@ -27,22 +28,64 @@ export const getSolanaAdminWallet = () => {
   return walletKeypair.publicKey.toString();
 };
 
-export const initializeGame = async (player1Pubkey, player2Pubkey) => {
-  const gameAccount = Keypair.generate();
-  console.table({
-    player1Pubkey: new PublicKey(player1Pubkey),
-    player2Pubkey: new PublicKey(player2Pubkey),
-  });
-  await program.methods
-    .initializeGame(new PublicKey(player1Pubkey), new PublicKey(player2Pubkey))
-    .accounts({
-      game: gameAccount.publicKey,
-      admin: walletKeypair.publicKey,
-      systemProgram: SystemProgram.programId,
-    })
-    .signers([gameAccount, walletKeypair])
-    .rpc();
+export const initializeGame = async (board: any, player1Pubkey, player2Pubkey) => {
+  try {
+    const gameAccount = Keypair.generate();
+    console.table({
+      player1Pubkey: new PublicKey(player1Pubkey),
+      player2Pubkey: new PublicKey(player2Pubkey),
+    });
+    const txn = await program.methods
+      .initializeGame(new PublicKey(player1Pubkey), new PublicKey(player2Pubkey))
+      .accounts({
+        game: gameAccount.publicKey,
+        admin: walletKeypair.publicKey,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([gameAccount, walletKeypair])
+      .rpc();
 
-  console.log("-> Game initialized with account:", gameAccount.publicKey.toBase58());
-  return gameAccount.publicKey;
+    const collection = client.db(process.env.DB_DECHESS!).collection(process.env.DB_DECHESS_COLLECTION_GAMES!);
+    board.transactionCreate = txn;
+    board.gamePDA = gameAccount.publicKey;
+    const newGame = await collection.insertOne(board);
+    return { gamePDA: gameAccount.publicKey, transactionCreate: txn };
+  } catch (error) {
+    return null;
+  }
+};
+
+export const makeMove = async (gamePDA: any, from: string, to: string) => {
+  try {
+    // Convert gamePDA to PublicKey if it's not already
+    console.table({ from, to });
+    if (typeof gamePDA === "string") {
+      gamePDA = new PublicKey(gamePDA); // Convert string to PublicKey
+    }
+
+    // Ensure the PDA is valid
+    if (!gamePDA) {
+      throw new Error("Invalid Game PDA");
+    }
+
+    // Ensure from and to moves are valid
+    if (!from || !to) {
+      throw new Error("Invalid move positions");
+    }
+
+    // Call makeMove on the program
+    const moveSignature = await program.methods
+      .makeMove(from, to) // Pass move positions
+      .accounts({
+        game: gamePDA, // The public key of the game account
+        admin: walletKeypair.publicKey, // The admin public key
+      })
+      .signers([walletKeypair]) // Signer must be admin's keypair
+      .rpc();
+
+    return moveSignature;
+  } catch (error) {
+    console.error("7s200:err", error);
+    return null;
+  }
 };

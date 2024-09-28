@@ -15,7 +15,7 @@ import { verifyToken } from "./services/jwt";
 import * as cron from "node-cron";
 import TelegramBot from "node-telegram-bot-api";
 import { bot } from "./services/bot";
-import { getSolanaAdminWallet, initializeGame } from "./services/solana";
+import { getSolanaAdminWallet, initializeGame, makeMove } from "./services/solana";
 
 const ABSENT_GAME_KEY = "absentGames";
 
@@ -122,7 +122,7 @@ async function removeAbsentGame(game_id: string, user: string) {
 }
 
 // Schedule the task to run every 2 hours
-cron.schedule("0 */2 * * *", syncGames);
+cron.schedule("*/5 * * * * *", syncGames);
 
 (async function main() {
   app.use(cors());
@@ -259,7 +259,7 @@ cron.schedule("0 */2 * * *", syncGames);
           const id = md5(time);
           const opponent = waitingQueue.splice(opponentIndex, 1)[0]; // Remove opponent from the queue
           const chess = new ChessV2();
-          const board = {
+          let board = {
             game_id: id,
             player_1: stringifyIfNotString(opponent.user),
             player_2: stringifyIfNotString(user.address),
@@ -283,11 +283,15 @@ cron.schedule("0 */2 * * *", syncGames);
             isGameDraw: false,
             winner: null,
             loser: null,
-            history: [new ChessV2().fen()],
+            history: [{ fen: new ChessV2().fen(), transaction: null }],
             startTime: Date.now(),
             player1Moves: 0,
             player2Moves: 0,
           };
+          // [TO-DO] submit txn
+          const txn = await initializeGame(board, board.player_1, board.player_2);
+          (board as any).gamePDA = txn.gamePDA;
+          (board as any).transactionCreate = txn.transactionCreate;
           // console.log("7s200:board", board);
           await redisClient.set(id, JSON.stringify(board));
           console.log(id);
@@ -297,8 +301,6 @@ cron.schedule("0 */2 * * *", syncGames);
           opponent.socket.join(board.game_id);
           socket.emit("createGame", { status: 200, board });
           opponent.socket.emit("createGame", { status: 200, board });
-          // [TO-DO] submit txn
-          await initializeGame(board.player_1, board.player_2);
         } else {
           // No matching opponent found, add the current user to the waiting queue
           waitingQueue.push({ user: user.address, socket, callback, timeStep, additionTimePerMove });
@@ -417,8 +419,9 @@ cron.schedule("0 */2 * * *", syncGames);
     socket.on("move", async function (move) {
       const user = (socket as any).user;
 
-      const { from, to, turn, address, isPromotion, fen, game_id, promotion, timers, san, lastMove, startTime, playerTimer1, playerTimer2, player1Moves, player2Moves, isCheck, isCapture } = move; //fake fen'
+      const { from, to, turn, address, isPromotion, fen, game_id, promotion, timers, san, lastMove, startTime, playerTimer1, playerTimer2, player1Moves, player2Moves, isCheck, isCapture, fakeFrom } = move; //fake fen'
       socket.join(game_id);
+      console.table({ from, to });
 
       let board: any;
       const cachedData = await redisClient.get(game_id);
@@ -456,6 +459,8 @@ cron.schedule("0 */2 * * *", syncGames);
       } catch (error) {
         // console.log(error);
       }
+      const transaction = await makeMove(board.gamePDA, fakeFrom, to);
+      console.log("7s200:transaction", transaction);
       const isGameOver = chess.isGameOver();
       const isGameDraw = chess.isDraw();
       board.isGameDraw = isGameDraw;
@@ -467,7 +472,7 @@ cron.schedule("0 */2 * * *", syncGames);
       board.startTime = startTime;
       board.playerTimer1 = playerTimer1;
       board.playerTimer2 = playerTimer2;
-      board.history = [...board.history, fen];
+      board.history = [...board.history, { fen: fen, transaction: transaction }];
       board.player1Moves = player1Moves;
       board.player2Moves = player2Moves;
 
