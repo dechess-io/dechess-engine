@@ -1,0 +1,148 @@
+{
+  "version": "0.1.0",
+  "name": "contracts",
+  "instructions": [
+    {
+      "name": "initializeGame",
+      "accounts": [
+        {
+          "name": "game",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "player1",
+          "type": "publicKey"
+        },
+        {
+          "name": "player2",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "makeMove",
+      "accounts": [
+        {
+          "name": "game",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "from",
+          "type": "string"
+        },
+        {
+          "name": "to",
+          "type": "string"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "GameAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "publicKey"
+          },
+          {
+            "name": "player1",
+            "type": "publicKey"
+          },
+          {
+            "name": "player2",
+            "type": "publicKey"
+          },
+          {
+            "name": "board",
+            "type": "string"
+          },
+          {
+            "name": "turn",
+            "type": "publicKey"
+          },
+          {
+            "name": "state",
+            "type": {
+              "defined": "GameState"
+            }
+          },
+          {
+            "name": "winner",
+            "type": {
+              "option": "publicKey"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "GameState",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Ongoing"
+          },
+          {
+            "name": "Draw"
+          },
+          {
+            "name": "WhiteWon"
+          },
+          {
+            "name": "BlackWon"
+          },
+          {
+            "name": "Canceled"
+          }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "GameFinished",
+      "msg": "The game is already finished."
+    },
+    {
+      "code": 6001,
+      "name": "Unauthorized",
+      "msg": "Only the admin can make moves."
+    },
+    {
+      "code": 6002,
+      "name": "InvalidMove",
+      "msg": "Invalid move."
+    }
+  ],
+  "metadata": {
+    "address": "4YJdg3btfUVYP6PZsGLhaJMLaBxFzmM1MWvkS2BYKHPi"
+  }
+}
