@@ -17,6 +17,7 @@ routes.post("/new-user-with-elo", userController.newUserWithElo);
 routes.post("/early-access", authenToken, userController.submitEarlyAccess);
 routes.post("/telegram-login", userController.telegramLogin);
 routes.get("/get-referral-link", authenToken, userController.getReferralLink);
+routes.post("/update-point", userController.updatePoint);
 
 routes.get("/login-message", userController.message);
 routes.post("/login-verify-account", userController.verify);
