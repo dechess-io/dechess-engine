@@ -426,9 +426,9 @@ const ABSENT_GAME_KEY = "absentGames";
       const cachedBoard = await redisClient.get(data.game_id);
       const board = JSON.parse(cachedBoard);
       const game_id = await redisClient.get("activeGame:" + (socket as any).user.address);
-      if (game_id) {
-        removeAbsentGame(game_id, user.address);
-      }
+      // if (game_id) {
+      //   removeAbsentGame(game_id, user.address);
+      // }
       socket.join(board.game_id);
       console.log("emit rejoin");
       io.to(board.game_id).emit("joinGame");
@@ -460,9 +460,9 @@ const ABSENT_GAME_KEY = "absentGames";
       try {
         console.log("7s200:socket:disconnect");
         const gameId = await redisClient.get("activeGame:" + (socket as any).user.address);
-        if (gameId) {
-          addAbsentGame(gameId, (socket as any).user.address);
-        }
+        // if (gameId) {
+        //   addAbsentGame(gameId, (socket as any).user.address);
+        // }
         io.to(gameId).emit("opponentDisconnect");
       } catch (err) {
         console.error("7s200:socket:disconnect:err", err);

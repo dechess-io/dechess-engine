@@ -82,7 +82,7 @@ export const userController = {
     let existUser = await collection.findOne({ address: user.id.toString });
 
     if (!existUser) {
-      existUser = await collection.insertOne({ address: user.id.toString, elo: 0, isEarly: false, accessCode: null, username: user.username });
+      existUser = await collection.insertOne({ address: user.id.toString, elo: 0, isEarly: false, accessCode: null, username: user.username, point: 0 });
     }
 
     const token = jwt.sign({ address: JSON.stringify(user.id) }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "75h" });
@@ -156,7 +156,7 @@ export const userController = {
       const { collection: userCollection } = await dbCollection<any>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_USERS!);
       const userInfo = await userCollection.findOne({ address: address, network: network, blockchain: "SOLANA" });
       if (!userInfo) {
-        const newUser = await userCollection.insertOne({ address: address, elo: 0, isEarly: false, accessCode: null, blockchain: "SOLANA", network: network });
+        const newUser = await userCollection.insertOne({ address: address, elo: 0, isEarly: false, accessCode: null, blockchain: "SOLANA", network: network, point : 0 });
         console.log("newuser:solana", newUser);
         if (!newUser) {
           return res.json({ status: 500, message: "CREATE_USER_FAILED" });
@@ -219,6 +219,35 @@ export const userController = {
       res.json({ status: 200, data: user, message: "GET_ACCOUNT_INFO_SUCCESS" });
     } catch (e) {
       return res.json({ status: 404, message: "INVALID_REQUEST" });
+    }
+  },
+  updatePoint : async (req, res) => {
+    console.log("-> update point for address ", req.userData);
+    try {
+      const { collection } = await dbCollection<any>(process.env.DB_DECHESS!, process.env.DB_DECHESS_COLLECTION_USERS!);
+      const userInfo = await collection.findOne({ address: req.userData.address });
+      if (!userInfo) {
+        return res.json({ status: 400, message: "USER_NOT_FOUND" });
+      }
+
+      const updatedPoint = userInfo.point + req.userData.point
+      const docs = {
+        $set: {
+          point: updatedPoint
+        },
+      };
+  
+      const updated = await collection.findOneAndUpdate({ address: userInfo.address }, docs);
+      if (!updated) {
+        return res.json({
+          status: 501,
+          message: "UPDATE_USER_POINT_FAILED!",
+        });
+      }
+      return res.json({ status: 200, message: "UPDATE_USER_POINT_SUCCESS", data: { userInfo } });
+    } catch (error) {
+      console.log("7s200:error", error);
+      return res.json({ status: 400, message: "UPDATE_USER_POINT_FAILED" });
     }
   },
   updateElo: async (req, res) => {
