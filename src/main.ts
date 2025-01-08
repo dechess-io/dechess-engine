@@ -16,10 +16,15 @@ import * as cron from "node-cron";
 import TelegramBot from "node-telegram-bot-api";
 import { bot } from "./services/bot";
 import { getSolanaAdminWallet, initializeGame, makeMove } from "./services/solana";
+import { logToOpenSearch } from "./logger";
 
 const ABSENT_GAME_KEY = "absentGames";
-
-
+const originalConsoleLog = console.log;
+console.log = async (...args) => {
+  originalConsoleLog(...args);
+  const message = args.map((arg) => (typeof arg === "string" ? arg : JSON.stringify(arg))).join(" ");
+  await logToOpenSearch(message);
+};
 (async function main() {
   app.use(cors());
   app.use(express.json());
@@ -30,7 +35,6 @@ const ABSENT_GAME_KEY = "absentGames";
     })
   );
 
-
   // draft
   const a = getSolanaAdminWallet();
   console.log("-> 7s200:a", a);
@@ -40,6 +44,12 @@ const ABSENT_GAME_KEY = "absentGames";
   await redisClient.connect();
 
   app.get("/ping", (req, res) => {
+    // console.log("Test open search ", new Date().toISOString());
+    res.json("pong");
+  });
+
+  app.get("/health", (req, res) => {
+    console.log("Test open search health ", new Date().toISOString());
     res.json("pong");
   });
 
