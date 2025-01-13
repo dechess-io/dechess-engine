@@ -10,6 +10,7 @@ import { sign } from "tweetnacl";
 import { validate } from "@telegram-apps/init-data-node";
 import nacl from "tweetnacl";
 import bs58 from "bs58";
+import { s3Client } from "../services/s3Client";
 
 export function randomIntFromInterval(min, max) {
   return Math.floor(Math.random() * (max - min + 1) + min);
@@ -271,6 +272,62 @@ export const userController = {
       newRbLoss,
       newRbDraw,
     });
+  },
+  uploadImage: async (req, res) => {
+    const {imageName, imageContent} = req.body
+    const base64Data = imageContent.replace(/^data:image\/\w+;base64,/, '');
+  
+    // Convert Base64 string to binary buffer
+    const buffer = Buffer.from(base64Data, 'base64');
+    
+    // Determine MIME type (default: 'image/png')
+    const mimeType = imageContent.match(/^data:image\/(\w+);base64,/)?.[1] || 'png';
+  
+    // Upload to S3
+    try {
+      const params = {
+        Bucket: "dechess-bucket/assets",
+        Key: imageName, // Use a UUID for unique filenames
+        Body: buffer,
+        ContentType: `image/${mimeType}`,
+      };
+  
+      const result = await s3Client.upload(params).promise();
+      console.log('Image uploaded successfully:', result.Location);
+      return res.status(200).json({
+        message: result.Location
+      })
+    } catch (error) {
+      console.error('Error uploading to S3:', error);
+      throw error;
+    }
+  },
+  uploadJsonFile: async (req, res) => {
+    try {
+      const { fileName, metadata } = req.body;
+
+    if (!fileName || !metadata) {
+      return res.status(400).json({ error: "'fileName' and 'metadata' are required." });
+    }
+      const params = {
+        Bucket: "dechess-bucket/metadata",
+        Key: fileName,
+        Body: metadata,
+      };
+    
+      const result = await s3Client.upload(params).promise()
+      console.log(result)
+      res.status(200).json({message : `${result.Location}`})
+    }catch(error){
+      console.error('Error uploading to S3:', error);
+      throw error;
+    }
+  },
+  deleteImage: async (req, res) => {
+
+  },
+  deleteJsonFile: async (req, res) => {
+
   },
   newUserWithElo: async (req, res) => {
     try {
